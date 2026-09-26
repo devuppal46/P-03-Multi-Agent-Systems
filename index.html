@@ -64,6 +64,29 @@
     .verdict-degraded { box-shadow: 0 0 32px rgba(251,191,36,0.3); }
     .verdict-at_risk  { box-shadow: 0 0 32px rgba(248,113,113,0.35); }
 
+    /* RCA card */
+    .rca-thinking {
+      background: linear-gradient(90deg, #1e293b 25%, #273548 50%, #1e293b 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.6s infinite;
+    }
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    .rca-card { border-left: 3px solid transparent; }
+    .rca-P1   { border-left-color: #f87171; box-shadow: 0 0 28px rgba(248,113,113,0.2); }
+    .rca-P2   { border-left-color: #fbbf24; box-shadow: 0 0 28px rgba(251,191,36,0.2); }
+    .rca-P3   { border-left-color: #38bdf8; box-shadow: 0 0 20px rgba(56,189,248,0.15); }
+    .rca-P4   { border-left-color: #4ade80; box-shadow: 0 0 20px rgba(74,222,128,0.15); }
+
+    /* Copy button flash */
+    .copy-flash { animation: copyFlash 0.6s ease-out; }
+    @keyframes copyFlash {
+      0%   { background-color: rgba(74,222,128,0.3); }
+      100% { background-color: transparent; }
+    }
+
     /* Modal backdrop */
     #approvalModal {
       backdrop-filter: blur(6px);
@@ -228,6 +251,87 @@
           </div>
         </div>
       </div>
+
+      <!-- ── RCA thinking placeholder (shown while Gemini is working) ── -->
+      <div id="rcaThinking" class="hidden rounded-xl border border-slate-800 bg-slate-900/60 p-5 animate-fade-in">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-5 h-5 rounded-full border-2 border-violet-400/40 border-t-violet-400 animate-spin"></div>
+          <span class="text-xs font-semibold uppercase tracking-widest text-violet-400">Synthesizing Incident Report</span>
+          <span class="text-xs text-slate-600 font-mono">Gemini is analyzing…</span>
+        </div>
+        <div class="space-y-2">
+          <div class="rca-thinking h-3 rounded w-3/4"></div>
+          <div class="rca-thinking h-3 rounded w-full"></div>
+          <div class="rca-thinking h-3 rounded w-5/6"></div>
+          <div class="rca-thinking h-3 rounded w-2/3"></div>
+        </div>
+      </div>
+
+      <!-- ── RCA Incident Report card ──────────────────────────────────── -->
+      <div id="rcaCard" class="hidden rounded-xl border border-slate-800 bg-slate-900/80 p-5 animate-fade-in rca-card">
+        <!-- Card header -->
+        <div class="flex items-start justify-between gap-3 mb-4">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/30 flex items-center justify-center">
+              <svg class="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+              </svg>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-widest text-violet-400 font-semibold">AI Incident Report</p>
+              <p class="text-xs text-slate-600 font-mono" id="rcaMeta"></p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <span id="rcaSeverityBadge" class="text-xs px-2.5 py-1 rounded-full font-bold uppercase tracking-wider border"></span>
+            <button id="copySlackBtn" onclick="copySlackPayload()"
+              class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-xs text-slate-400 hover:text-slate-200 transition active:scale-95 font-medium">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 7.5V6.108c0-1.135.845-2.098 1.976-2.192.373-.03.748-.057 1.123-.08M15.75 18H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08M15.75 18.75v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5A3.375 3.375 0 006.375 7.5H5.25m11.9 3.083A2.25 2.25 0 0115 12.75" />
+              </svg>
+              <span id="copyBtnLabel">Copy Slack</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Summary bar -->
+        <div class="bg-slate-950/60 rounded-lg px-4 py-2.5 mb-4 border border-slate-800">
+          <p id="rcaSummary" class="text-sm font-semibold text-slate-100 leading-snug"></p>
+        </div>
+
+        <!-- Grid: narrative + root cause -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+          <div class="bg-slate-950/40 rounded-lg p-3 border border-slate-800/60">
+            <p class="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-2">📋 Narrative</p>
+            <p id="rcaNarrative" class="text-sm text-slate-300 leading-relaxed font-mono"></p>
+          </div>
+          <div class="bg-slate-950/40 rounded-lg p-3 border border-slate-800/60">
+            <p class="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-2">🔍 Root Cause</p>
+            <p id="rcaRootCause" class="text-sm text-slate-300 leading-relaxed font-mono"></p>
+            <div class="mt-3 flex items-center gap-2">
+              <span class="text-xs text-slate-600 uppercase tracking-wider">Confidence:</span>
+              <span id="rcaConfidence" class="text-xs font-semibold px-2 py-0.5 rounded-full border"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recommended actions -->
+        <div class="bg-slate-950/40 rounded-lg p-3 border border-slate-800/60 mb-4">
+          <p class="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-2">✅ Recommended Actions</p>
+          <ol id="rcaActions" class="space-y-1.5 text-sm text-slate-300 list-none"></ol>
+        </div>
+
+        <!-- Slack preview (collapsible) -->
+        <details class="group">
+          <summary class="cursor-pointer flex items-center gap-2 text-xs text-slate-500 hover:text-slate-400 transition select-none">
+            <svg class="w-3 h-3 transition-transform group-open:rotate-90" fill="currentColor" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+            Slack Block Kit payload
+          </summary>
+          <div class="mt-2 rounded-lg bg-slate-950 border border-slate-800 p-3 overflow-hidden">
+            <pre id="rcaSlackJson" class="font-mono text-xs text-slate-400 whitespace-pre-wrap break-all overflow-auto max-h-48"></pre>
+          </div>
+        </details>
+      </div>
     </section>
 
     <!-- ── RIGHT: Blackboard sidebar ────────────────────────────────────── -->
@@ -342,6 +446,8 @@
     const timeBar       = document.getElementById('timeBar');
     const timeLabel     = document.getElementById('timeLabel');
     const approvalModal = document.getElementById('approvalModal');
+    const rcaThinking   = document.getElementById('rcaThinking');
+    const rcaCard       = document.getElementById('rcaCard');
 
     // ── Status badge config ───────────────────────────────────────────────────
     const STATUS_CONFIG = {
@@ -406,6 +512,8 @@
       bbCode.className = 'text-slate-600 italic';
       bbVersionEl.textContent = 'v0';
       verdictCard.classList.add('hidden');
+      rcaCard.classList.add('hidden');
+      rcaThinking.classList.add('hidden');
       stepsBar.style.width = '0%';
       stepsLabel.textContent = `0 / ${MAX_STEPS}`;
       timeBar.style.width = '0%';
@@ -478,6 +586,10 @@
 
       verdictCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       if (ev.blackboard) updateBlackboard(ev.blackboard);
+
+      // Show RCA thinking placeholder immediately — real card arrives ~1-2s later
+      rcaThinking.classList.remove('hidden');
+      rcaThinking.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
     // ── Approval modal ────────────────────────────────────────────────────────
@@ -526,6 +638,86 @@
       }
     }
 
+    // ── RCA card ──────────────────────────────────────────────────────────────
+    let _slackPayload = null;   // stored for Copy Slack button
+
+    function showRcaCard(ev) {
+      const rca      = ev.rca || {};
+      const severity = rca.severity || 'P3';
+      const sevColors = {
+        P1: { badge: 'bg-red-500/15 text-red-400 border-red-500/30',    conf: 'text-red-400' },
+        P2: { badge: 'bg-amber-500/15 text-amber-400 border-amber-500/30', conf: 'text-amber-400' },
+        P3: { badge: 'bg-sky-500/15 text-sky-400 border-sky-500/30',    conf: 'text-sky-400' },
+        P4: { badge: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30', conf: 'text-emerald-400' },
+      };
+      const confColors = { high: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10',
+                           medium: 'text-amber-400 border-amber-500/30 bg-amber-500/10',
+                           low: 'text-red-400 border-red-500/30 bg-red-500/10' };
+      const sc = sevColors[severity] || sevColors.P3;
+
+      // Hide thinking placeholder, show card
+      rcaThinking.classList.add('hidden');
+      rcaCard.classList.remove('hidden');
+      rcaCard.className = rcaCard.className.replace(/rca-P\d/g, '') + ` rca-${severity}`;
+
+      document.getElementById('rcaSummary').textContent    = rca.summary    || 'No summary';
+      document.getElementById('rcaNarrative').textContent  = rca.narrative  || '—';
+      document.getElementById('rcaRootCause').textContent  = rca.root_cause || '—';
+      document.getElementById('rcaMeta').textContent =
+        `${rca.model || 'gemini'} · ${rca.latency_ms ?? '?'}ms · ${ev.elapsed_s}s elapsed`;
+
+      document.getElementById('rcaSeverityBadge').textContent = severity;
+      document.getElementById('rcaSeverityBadge').className   =
+        `text-xs px-2.5 py-1 rounded-full font-bold uppercase tracking-wider border ${sc.badge}`;
+
+      const confEl = document.getElementById('rcaConfidence');
+      const conf   = (rca.confidence || 'low').toLowerCase();
+      confEl.textContent = conf.toUpperCase();
+      confEl.className   = `text-xs font-semibold px-2 py-0.5 rounded-full border ${confColors[conf] || confColors.low}`;
+
+      // Recommended actions list
+      const actionsEl = document.getElementById('rcaActions');
+      actionsEl.innerHTML = '';
+      (rca.recommended_actions || []).forEach((action, i) => {
+        const li = document.createElement('li');
+        li.className = 'flex items-start gap-2 text-slate-300';
+        li.innerHTML = `
+          <span class="shrink-0 w-5 h-5 rounded-full bg-violet-500/20 border border-violet-500/30
+                       text-violet-400 text-xs font-bold flex items-center justify-center mt-0.5">${i + 1}</span>
+          <span class="font-mono text-xs leading-relaxed">${esc(action)}</span>
+        `;
+        actionsEl.appendChild(li);
+      });
+
+      // Slack payload preview
+      _slackPayload = rca.slack_payload || null;
+      if (_slackPayload) {
+        document.getElementById('rcaSlackJson').textContent =
+          JSON.stringify(_slackPayload, null, 2);
+      }
+
+      // If RCA has an error, show a warning tint
+      if (rca.error) {
+        rcaCard.classList.add('border-amber-800/40');
+      }
+
+      rcaCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function copySlackPayload() {
+      if (!_slackPayload) return;
+      navigator.clipboard.writeText(JSON.stringify(_slackPayload, null, 2)).then(() => {
+        const btn = document.getElementById('copySlackBtn');
+        const lbl = document.getElementById('copyBtnLabel');
+        lbl.textContent = 'Copied!';
+        btn.classList.add('copy-flash', 'border-emerald-500/40', 'text-emerald-400');
+        setTimeout(() => {
+          lbl.textContent = 'Copy Slack';
+          btn.classList.remove('copy-flash', 'border-emerald-500/40', 'text-emerald-400');
+        }, 1800);
+      });
+    }
+
     // ── SSE handler ───────────────────────────────────────────────────────────
     function handleSSE(run_id) {
       if (eventSource) eventSource.close();
@@ -564,6 +756,11 @@
 
           case 'verdict':
             showVerdict(ev);
+            // DON'T close eventSource here — rca event arrives next
+            break;
+
+          case 'rca':
+            showRcaCard(ev);
             setRunComplete();
             eventSource.close();
             break;

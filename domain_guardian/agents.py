@@ -13,6 +13,44 @@ from datetime import datetime, timezone
 
 import requests
 
+# ── Shared browser-like User-Agent ────────────────────────────────────────────
+# Many WAF/CDN providers (Cloudflare, Akamai, Fastly) block the default
+# Python-requests user-agent with a 403 or 503.  Using a realistic browser
+# string avoids this without breaking any APIs that don't care.
+_BROWSER_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/124.0.0.0 Safari/537.36"
+)
+
+
+# ── Apex-domain helper ────────────────────────────────────────────────────────
+def _apex_domain(domain: str) -> str:
+    """Return the registrable (apex) domain by stripping leading sub-labels.
+
+    RDAP registries only hold records for the apex domain, so querying
+    ``api.github.com`` would always 404.  We strip until we have exactly
+    two labels (or three for known two-part TLDs like co.uk).
+
+    Examples
+    --------
+    >>> _apex_domain("api.github.com")  # -> "github.com"
+    >>> _apex_domain("github.com")      # -> "github.com"
+    >>> _apex_domain("a.b.co.uk")       # -> "b.co.uk"
+    """
+    # Two-part TLDs that need three labels to form the apex
+    TWO_PART_TLDS = {
+        "co.uk", "co.in", "co.jp", "co.nz", "co.za", "co.kr",
+        "com.au", "com.br", "com.cn", "com.mx", "com.sg", "com.ar",
+        "net.au", "org.uk", "me.uk", "gov.uk", "ac.uk",
+    }
+    parts = domain.rstrip(".").split(".")
+    # Check if the last two labels form a known two-part TLD
+    if len(parts) >= 3 and ".".join(parts[-2:]) in TWO_PART_TLDS:
+        return ".".join(parts[-3:])
+    # Default: keep only the last two labels
+    return ".".join(parts[-2:]) if len(parts) >= 2 else domain
+
 
 class RecoverableError(Exception):
     """Raised for transient failures worth retrying: timeouts, 5xx, connection resets."""
@@ -132,8 +170,12 @@ class UptimeAgent(ToolAgent):
     tool_name = "http_get"
 
     def _get(self, scheme, domain):
+        # FIX 1: Pass a realistic browser User-Agent so WAF/CDN providers
+        # (Cloudflare, Akamai) don't block us with 403/503.
+        headers = {"User-Agent": _BROWSER_UA}
         try:
-            r = requests.get(f"{scheme}://{domain}", timeout=5, allow_redirects=True)
+            r = requests.get(f"{scheme}://{domain}", timeout=5,
+                             allow_redirects=True, headers=headers)
         except requests.Timeout:
             raise RecoverableError(f"{scheme} request timed out")
         except requests.ConnectionError as e:
@@ -203,38 +245,69 @@ class RDAPAgent(ToolAgent):
     tool_name = "rdap_lookup"
 
     def call_tool(self, domain, blackboard):
+        # FIX 2: RDAP registries only hold records for apex/root domains.
+        # Strip any leading subdomains before querying so that
+        # e.g. "api.github.com" becomes "github.com".
+        apex = _apex_domain(domain)
+
         try:
-            r = requests.get(f"https://rdap.org/domain/{domain}", timeout=6)
+            r = requests.get(f"https://rdap.org/domain/{apex}", timeout=6)
         except (requests.Timeout, requests.ConnectionError) as e:
             raise RecoverableError(f"RDAP lookup failed: {e}")
+
+        # 404 can mean: TLD not supported by rdap.org, or truly unregistered.
+        # Either way it is not a transient error worth retrying — return a
+        # graceful "unknown" result instead of a hard "not found".
         if r.status_code == 404:
-            result = {"found": False, "days_left": None}
+            result = {
+                "found": False,
+                "days_left": None,
+                "registered": "unknown",
+                "error": "RDAP not found/supported for this TLD",
+                "queried_apex": apex,
+            }
             blackboard.write("rdap", result, agent=self.name)
             return result
+
         if r.status_code >= 500:
             raise RecoverableError(f"RDAP server returned {r.status_code}")
+
         if r.status_code >= 400:
-            result = {"found": False, "days_left": None}
+            result = {
+                "found": False,
+                "days_left": None,
+                "registered": "unknown",
+                "error": f"RDAP returned HTTP {r.status_code}",
+                "queried_apex": apex,
+            }
             blackboard.write("rdap", result, agent=self.name)
             return result
+
         try:
             data = r.json()
         except ValueError:
             raise RecoverableError("RDAP response was not valid JSON")
+
         events = data.get("events", [])
         expiry_event = next((e for e in events if e.get("eventAction") == "expiration"), None)
         if not expiry_event:
-            result = {"found": True, "days_left": None}
+            result = {"found": True, "days_left": None, "queried_apex": apex}
         else:
             expiry = datetime.fromisoformat(expiry_event["eventDate"].replace("Z", "+00:00"))
             days_left = (expiry - datetime.now(timezone.utc)).days
-            result = {"found": True, "days_left": days_left}
+            result = {"found": True, "days_left": days_left, "queried_apex": apex}
         blackboard.write("rdap", result, agent=self.name)
         return result
 
     def rationale(self, result):
+        if result.get("error"):
+            return f"RDAP unavailable for apex '{result.get('queried_apex', '?')}': {result['error']}"
         if not result["found"]:
             return "no RDAP record found (unsupported TLD or unregistered)"
         if result["days_left"] is None:
             return "registered, but no expiration date published"
-        return f"registration expires in {result['days_left']} day(s)"
+        return (
+            f"registration expires in {result['days_left']} day(s)"
+            + (f" (queried apex: {result['queried_apex']})"
+               if result.get("queried_apex") else "")
+        )
