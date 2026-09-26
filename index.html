@@ -17,12 +17,6 @@
             sans: ['Inter', 'ui-sans-serif', 'system-ui'],
             mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
           },
-          colors: {
-            slate: {
-              850: '#172033',
-              950: '#0b1120',
-            }
-          },
           animation: {
             'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
             'fade-in': 'fadeIn 0.4s ease-out forwards',
@@ -39,19 +33,19 @@
 
   <style>
     * { box-sizing: border-box; }
-    body { background: #0b1120; }
+    body { background: #000000; }
 
     /* Scrollbar styling */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #172033; }
-    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    ::-webkit-scrollbar-track { background: #18181b; }
+    ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #52525b; }
 
-    /* Glow effects */
-    .glow-cyan   { box-shadow: 0 0 16px rgba(34,211,238,0.25); }
-    .glow-green  { box-shadow: 0 0 16px rgba(74,222,128,0.25); }
-    .glow-red    { box-shadow: 0 0 16px rgba(248,113,113,0.25); }
-    .glow-amber  { box-shadow: 0 0 16px rgba(251,191,36,0.25); }
+    /* Glow effects (subtle — used sparingly on accent buttons, not cards) */
+    .glow-cyan   { box-shadow: 0 0 16px rgba(34,211,238,0.15); }
+    .glow-green  { box-shadow: 0 0 16px rgba(74,222,128,0.15); }
+    .glow-red    { box-shadow: 0 0 16px rgba(248,113,113,0.15); }
+    .glow-amber  { box-shadow: 0 0 16px rgba(251,191,36,0.15); }
 
     /* SSE row animation */
     .trace-row { animation: fadeIn 0.35s ease-out forwards; }
@@ -60,13 +54,13 @@
     .budget-fill { transition: width 0.5s ease; }
 
     /* Verdict glow */
-    .verdict-healthy  { box-shadow: 0 0 32px rgba(74,222,128,0.3); }
-    .verdict-degraded { box-shadow: 0 0 32px rgba(251,191,36,0.3); }
-    .verdict-at_risk  { box-shadow: 0 0 32px rgba(248,113,113,0.35); }
+    .verdict-healthy  { box-shadow: 0 0 24px rgba(74,222,128,0.15); }
+    .verdict-degraded { box-shadow: 0 0 24px rgba(251,191,36,0.15); }
+    .verdict-at_risk  { box-shadow: 0 0 24px rgba(248,113,113,0.18); }
 
     /* RCA card */
     .rca-thinking {
-      background: linear-gradient(90deg, #1e293b 25%, #273548 50%, #1e293b 75%);
+      background: linear-gradient(90deg, #27272a 25%, #3f3f46 50%, #27272a 75%);
       background-size: 200% 100%;
       animation: shimmer 1.6s infinite;
     }
@@ -75,10 +69,10 @@
       100% { background-position: -200% 0; }
     }
     .rca-card { border-left: 3px solid transparent; }
-    .rca-P1   { border-left-color: #f87171; box-shadow: 0 0 28px rgba(248,113,113,0.2); }
-    .rca-P2   { border-left-color: #fbbf24; box-shadow: 0 0 28px rgba(251,191,36,0.2); }
-    .rca-P3   { border-left-color: #38bdf8; box-shadow: 0 0 20px rgba(56,189,248,0.15); }
-    .rca-P4   { border-left-color: #4ade80; box-shadow: 0 0 20px rgba(74,222,128,0.15); }
+    .rca-P1   { border-left-color: #f87171; box-shadow: 0 0 24px rgba(248,113,113,0.12); }
+    .rca-P2   { border-left-color: #fbbf24; box-shadow: 0 0 24px rgba(251,191,36,0.12); }
+    .rca-P3   { border-left-color: #38bdf8; box-shadow: 0 0 18px rgba(56,189,248,0.1); }
+    .rca-P4   { border-left-color: #4ade80; box-shadow: 0 0 18px rgba(74,222,128,0.1); }
 
     /* Copy button flash */
     .copy-flash { animation: copyFlash 0.6s ease-out; }
@@ -111,17 +105,17 @@
       0%, 100% { opacity: 1; transform: scale(1); }
       50%       { opacity: 0.4; transform: scale(0.7); }
     }
-    .live-dot.idle { background: #475569; animation: none; }
+    .live-dot.idle { background: #52525b; animation: none; }
     .live-dot.running { background: #38bdf8; }
     .live-dot.waiting { background: #fbbf24; }
     .live-dot.done    { background: #4ade80; animation: none; }
   </style>
 </head>
 
-<body class="font-sans text-slate-200 min-h-screen flex flex-col">
+<body class="font-sans text-zinc-200 min-h-screen flex flex-col">
 
   <!-- ══════════════════════════════════════════════════════════ TOP BAR -->
-  <header class="border-b border-slate-800 bg-slate-950/80 sticky top-0 z-30 backdrop-blur-sm">
+  <header class="border-b border-white/10 bg-zinc-950/80 sticky top-0 z-30 backdrop-blur-md">
     <div class="max-w-screen-2xl mx-auto px-6 py-3 flex flex-col sm:flex-row items-start sm:items-center gap-3">
 
       <!-- Logo -->
@@ -130,35 +124,37 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
         </svg>
         <span class="font-semibold text-white tracking-tight text-sm">Domain Guardian</span>
-        <span class="text-slate-600 text-xs font-mono hidden sm:inline">v1.0</span>
+        <span class="text-zinc-600 text-xs font-mono hidden sm:inline">v1.0</span>
       </div>
 
-      <!-- Domain input -->
+      <!-- Domain input + chaos, grouped as one pill; Run button as separate primary action -->
       <div class="flex-1 flex items-center gap-2 min-w-0 w-full">
-        <input
-          id="domainInput"
-          type="text"
-          placeholder="example.com"
-          value="example.com"
-          class="font-mono text-sm bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/60 focus:border-cyan-500 w-52 transition"
-          autocomplete="off"
-        />
+        <div class="flex-1 flex items-center min-w-0 rounded-md border border-white/10 bg-zinc-900 divide-x divide-white/10 focus-within:ring-2 focus-within:ring-cyan-500/50 transition">
+          <input
+            id="domainInput"
+            type="text"
+            placeholder="example.com"
+            value="example.com"
+            class="flex-1 min-w-0 font-mono text-sm bg-transparent px-3 py-1.5 text-zinc-100 placeholder-zinc-500 focus:outline-none w-32"
+            autocomplete="off"
+          />
 
-        <!-- Chaos toggle -->
-        <div class="flex items-center gap-1.5">
-          <span class="text-xs text-slate-500 whitespace-nowrap hidden md:block">Chaos:</span>
-          <select id="chaosSelect" class="font-mono text-xs bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500/50 cursor-pointer transition">
-            <option value="none">🟢 None</option>
-            <option value="dns_timeout">🌐 DNS Timeout</option>
-            <option value="cert_expired">🔐 Cert Expired</option>
-          </select>
+          <!-- Chaos toggle -->
+          <div class="flex items-center gap-1.5 px-2.5 shrink-0">
+            <span class="text-xs text-zinc-500 whitespace-nowrap hidden md:block">Chaos</span>
+            <select id="chaosSelect" class="font-mono text-xs bg-transparent py-1.5 text-zinc-200 focus:outline-none cursor-pointer transition">
+              <option value="none">🟢 None</option>
+              <option value="dns_timeout">🌐 DNS Timeout</option>
+              <option value="cert_expired">🔐 Cert Expired</option>
+            </select>
+          </div>
         </div>
 
         <!-- Run button -->
         <button
           id="runBtn"
           onclick="startAudit()"
-          class="flex items-center gap-2 px-4 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white text-sm font-semibold transition-all duration-150 shadow-md glow-cyan disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+          class="flex items-center gap-2 px-4 py-1.5 rounded-md bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white text-sm font-semibold transition-all duration-150 shadow-lg shadow-cyan-500/20 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
         >
           <svg id="runIcon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 010 1.972l-11.54 6.347a1.125 1.125 0 01-1.667-.986V5.653z" />
@@ -171,25 +167,25 @@
       <div class="flex items-center gap-4 ml-auto shrink-0">
         <div class="flex items-center gap-1.5">
           <div id="liveDot" class="live-dot idle"></div>
-          <span id="liveLabel" class="text-xs text-slate-500">Idle</span>
+          <span id="liveLabel" class="text-xs text-zinc-500">Idle</span>
         </div>
 
         <div class="hidden sm:block">
           <div class="flex items-center gap-1 mb-0.5">
-            <span class="text-xs text-slate-500 font-mono w-20">Steps</span>
+            <span class="text-xs text-zinc-500 font-mono w-20">Steps</span>
             <span id="stepsLabel" class="text-xs text-cyan-400 font-mono">0 / 12</span>
           </div>
-          <div class="w-28 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+          <div class="w-28 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
             <div id="stepsBar" class="budget-fill h-full bg-cyan-500 rounded-full" style="width:0%"></div>
           </div>
         </div>
 
         <div class="hidden sm:block">
           <div class="flex items-center gap-1 mb-0.5">
-            <span class="text-xs text-slate-500 font-mono w-20">Elapsed</span>
+            <span class="text-xs text-zinc-500 font-mono w-20">Elapsed</span>
             <span id="timeLabel" class="text-xs text-violet-400 font-mono">0.0s / 25s</span>
           </div>
-          <div class="w-28 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+          <div class="w-28 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
             <div id="timeBar" class="budget-fill h-full bg-violet-500 rounded-full" style="width:0%"></div>
           </div>
         </div>
@@ -205,15 +201,15 @@
 
       <!-- Section header -->
       <div class="flex items-center gap-2">
-        <span class="text-xs font-semibold uppercase tracking-widest text-slate-500">Live Trace</span>
-        <div class="flex-1 h-px bg-slate-800"></div>
-        <span id="traceCount" class="text-xs text-slate-600 font-mono">0 events</span>
+        <span class="text-xs font-semibold uppercase tracking-widest text-zinc-500">Live Trace</span>
+        <div class="flex-1 h-px bg-zinc-800"></div>
+        <span id="traceCount" class="text-xs text-zinc-600 font-mono">0 events</span>
       </div>
 
       <!-- Trace table -->
-      <div class="rounded-xl border border-slate-800 bg-slate-900/70 overflow-hidden">
+      <div class="rounded-xl border border-white/10 bg-zinc-900 shadow-lg shadow-black/50 overflow-hidden">
         <!-- Table header -->
-        <div class="grid grid-cols-[90px_100px_1fr_80px_60px] gap-3 px-4 py-2 bg-slate-950/60 border-b border-slate-800 text-xs font-semibold uppercase tracking-wider text-slate-500">
+        <div class="grid grid-cols-[90px_100px_1fr_80px_60px] gap-3 px-4 py-2 bg-black/30 border-b border-white/10 text-xs font-semibold uppercase tracking-wider text-zinc-500">
           <span>Agent</span>
           <span>Status</span>
           <span>Rationale</span>
@@ -222,9 +218,9 @@
         </div>
 
         <!-- Trace rows container -->
-        <div id="traceBody" class="divide-y divide-slate-800/60 min-h-[200px]">
+        <div id="traceBody" class="divide-y divide-white/5 min-h-[200px]">
           <!-- Empty state -->
-          <div id="traceEmpty" class="flex flex-col items-center justify-center py-16 text-slate-600">
+          <div id="traceEmpty" class="flex flex-col items-center justify-center py-16 text-zinc-600">
             <svg class="w-10 h-10 mb-3 opacity-30" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
             </svg>
@@ -235,17 +231,17 @@
       </div>
 
       <!-- ── Verdict card ─────────────────────────────────────────────── -->
-      <div id="verdictCard" class="hidden rounded-xl border bg-slate-900/80 p-5 animate-fade-in transition-all">
+      <div id="verdictCard" class="hidden rounded-xl border bg-zinc-900/80 shadow-lg shadow-black/50 p-5 animate-fade-in transition-all">
         <div class="flex items-start justify-between gap-4">
           <div>
-            <p class="text-xs uppercase tracking-widest text-slate-500 mb-1">Final Verdict</p>
+            <p class="text-xs uppercase tracking-widest text-zinc-500 mb-1">Final Verdict</p>
             <div class="flex items-center gap-3">
               <span id="verdictBadge" class="text-2xl font-bold font-mono uppercase tracking-wide"></span>
               <span id="verdictRisk" class="text-xs px-2 py-0.5 rounded-full border font-semibold uppercase tracking-wider"></span>
             </div>
-            <p id="verdictSummary" class="text-sm text-slate-400 mt-2 font-mono leading-relaxed"></p>
+            <p id="verdictSummary" class="text-sm text-zinc-400 mt-2 font-mono leading-relaxed"></p>
           </div>
-          <div class="text-right text-xs text-slate-600 font-mono shrink-0">
+          <div class="text-right text-xs text-zinc-600 font-mono shrink-0">
             <div id="verdictSteps"></div>
             <div id="verdictTime"></div>
           </div>
@@ -253,11 +249,11 @@
       </div>
 
       <!-- ── RCA thinking placeholder (shown while Gemini is working) ── -->
-      <div id="rcaThinking" class="hidden rounded-xl border border-slate-800 bg-slate-900/60 p-5 animate-fade-in">
+      <div id="rcaThinking" class="hidden rounded-xl border border-white/10 bg-zinc-900/60 shadow-lg shadow-black/50 p-5 animate-fade-in">
         <div class="flex items-center gap-3 mb-3">
           <div class="w-5 h-5 rounded-full border-2 border-violet-400/40 border-t-violet-400 animate-spin"></div>
           <span class="text-xs font-semibold uppercase tracking-widest text-violet-400">Synthesizing Incident Report</span>
-          <span class="text-xs text-slate-600 font-mono">Gemini is analyzing…</span>
+          <span class="text-xs text-zinc-600 font-mono">Gemini is analyzing…</span>
         </div>
         <div class="space-y-2">
           <div class="rca-thinking h-3 rounded w-3/4"></div>
@@ -268,7 +264,7 @@
       </div>
 
       <!-- ── RCA Incident Report card ──────────────────────────────────── -->
-      <div id="rcaCard" class="hidden rounded-xl border border-slate-800 bg-slate-900/80 p-5 animate-fade-in rca-card">
+      <div id="rcaCard" class="hidden rounded-xl border border-white/10 bg-zinc-900/80 shadow-lg shadow-black/50 p-5 animate-fade-in rca-card">
         <!-- Card header -->
         <div class="flex items-start justify-between gap-3 mb-4">
           <div class="flex items-center gap-2">
@@ -279,13 +275,13 @@
             </div>
             <div>
               <p class="text-xs uppercase tracking-widest text-violet-400 font-semibold">AI Incident Report</p>
-              <p class="text-xs text-slate-600 font-mono" id="rcaMeta"></p>
+              <p class="text-xs text-zinc-600 font-mono" id="rcaMeta"></p>
             </div>
           </div>
           <div class="flex items-center gap-2 shrink-0">
             <span id="rcaSeverityBadge" class="text-xs px-2.5 py-1 rounded-full font-bold uppercase tracking-wider border"></span>
             <button id="copySlackBtn" onclick="copySlackPayload()"
-              class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-xs text-slate-400 hover:text-slate-200 transition active:scale-95 font-medium">
+              class="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-white/10 bg-zinc-800/80 hover:bg-zinc-700 text-xs text-zinc-400 hover:text-zinc-200 transition active:scale-95 font-medium">
               <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 7.5V6.108c0-1.135.845-2.098 1.976-2.192.373-.03.748-.057 1.123-.08M15.75 18H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08M15.75 18.75v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5A3.375 3.375 0 006.375 7.5H5.25m11.9 3.083A2.25 2.25 0 0115 12.75" />
               </svg>
@@ -295,40 +291,40 @@
         </div>
 
         <!-- Summary bar -->
-        <div class="bg-slate-950/60 rounded-lg px-4 py-2.5 mb-4 border border-slate-800">
-          <p id="rcaSummary" class="text-sm font-semibold text-slate-100 leading-snug"></p>
+        <div class="bg-zinc-900/50 border border-white/5 rounded-lg px-4 py-2.5 mb-4">
+          <p id="rcaSummary" class="text-sm font-semibold text-zinc-100 leading-snug"></p>
         </div>
 
         <!-- Grid: narrative + root cause -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-          <div class="bg-slate-950/40 rounded-lg p-3 border border-slate-800/60">
-            <p class="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-2">📋 Narrative</p>
-            <p id="rcaNarrative" class="text-sm text-slate-300 leading-relaxed font-mono"></p>
+          <div class="bg-zinc-900/50 border border-white/5 rounded-lg p-5">
+            <p class="text-xs uppercase tracking-wider text-zinc-500 font-semibold mb-2">📋 Narrative</p>
+            <p id="rcaNarrative" class="text-sm text-zinc-300 leading-relaxed font-mono"></p>
           </div>
-          <div class="bg-slate-950/40 rounded-lg p-3 border border-slate-800/60">
-            <p class="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-2">🔍 Root Cause</p>
-            <p id="rcaRootCause" class="text-sm text-slate-300 leading-relaxed font-mono"></p>
+          <div class="bg-zinc-900/50 border border-white/5 rounded-lg p-5">
+            <p class="text-xs uppercase tracking-wider text-zinc-500 font-semibold mb-2">🔍 Root Cause</p>
+            <p id="rcaRootCause" class="text-sm text-zinc-300 leading-relaxed font-mono"></p>
             <div class="mt-3 flex items-center gap-2">
-              <span class="text-xs text-slate-600 uppercase tracking-wider">Confidence:</span>
+              <span class="text-xs text-zinc-600 uppercase tracking-wider">Confidence:</span>
               <span id="rcaConfidence" class="text-xs font-semibold px-2 py-0.5 rounded-full border"></span>
             </div>
           </div>
         </div>
 
         <!-- Recommended actions -->
-        <div class="bg-slate-950/40 rounded-lg p-3 border border-slate-800/60 mb-4">
-          <p class="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-2">✅ Recommended Actions</p>
-          <ol id="rcaActions" class="space-y-1.5 text-sm text-slate-300 list-none"></ol>
+        <div class="bg-zinc-900/50 border border-white/5 rounded-lg p-5 mb-4">
+          <p class="text-xs uppercase tracking-wider text-zinc-500 font-semibold mb-2">✅ Recommended Actions</p>
+          <ol id="rcaActions" class="space-y-1.5 text-sm text-zinc-300 list-none"></ol>
         </div>
 
         <!-- Slack preview (collapsible) -->
         <details class="group">
-          <summary class="cursor-pointer flex items-center gap-2 text-xs text-slate-500 hover:text-slate-400 transition select-none">
+          <summary class="cursor-pointer flex items-center gap-2 text-xs text-zinc-500 hover:text-zinc-400 transition select-none">
             <svg class="w-3 h-3 transition-transform group-open:rotate-90" fill="currentColor" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
             Slack Block Kit payload
           </summary>
-          <div class="mt-2 rounded-lg bg-slate-950 border border-slate-800 p-3 overflow-hidden">
-            <pre id="rcaSlackJson" class="font-mono text-xs text-slate-400 whitespace-pre-wrap break-all overflow-auto max-h-48"></pre>
+          <div class="mt-2 rounded-lg bg-black/40 border border-white/10 p-3 overflow-hidden">
+            <pre id="rcaSlackJson" class="font-mono text-xs text-zinc-400 whitespace-pre-wrap break-all overflow-auto max-h-48"></pre>
           </div>
         </details>
       </div>
@@ -339,47 +335,47 @@
 
       <!-- Blackboard header -->
       <div class="flex items-center gap-2">
-        <span class="text-xs font-semibold uppercase tracking-widest text-slate-500">Blackboard</span>
-        <div class="flex-1 h-px bg-slate-800"></div>
-        <span id="bbVersion" class="text-xs text-slate-600 font-mono">v0</span>
+        <span class="text-xs font-semibold uppercase tracking-widest text-zinc-500">Blackboard</span>
+        <div class="flex-1 h-px bg-zinc-800"></div>
+        <span id="bbVersion" class="text-xs text-zinc-600 font-mono">v0</span>
       </div>
 
       <!-- Blackboard JSON -->
-      <div class="rounded-xl border border-slate-800 bg-slate-950 p-4 flex-1 overflow-hidden">
-        <pre id="bbPre" class="font-mono text-xs text-slate-400 leading-relaxed overflow-auto max-h-80 whitespace-pre-wrap break-all"><code id="bbCode" class="text-slate-600 italic">// awaiting first event…</code></pre>
+      <div class="rounded-xl border border-white/10 bg-black/40 shadow-lg shadow-black/50 p-4 flex-1 overflow-hidden">
+        <pre id="bbPre" class="font-mono text-xs text-zinc-400 leading-relaxed overflow-auto max-h-80 whitespace-pre-wrap break-all"><code id="bbCode" class="text-zinc-600 italic">// awaiting first event…</code></pre>
       </div>
 
       <!-- Batch runner -->
-      <div class="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
+      <div class="rounded-xl border border-white/10 bg-zinc-900 shadow-lg shadow-black/50 p-4">
         <div class="flex items-center gap-2 mb-3">
-          <span class="text-xs font-semibold uppercase tracking-widest text-slate-500">Batch Harness</span>
-          <div class="flex-1 h-px bg-slate-800"></div>
+          <span class="text-xs font-semibold uppercase tracking-widest text-zinc-500">Batch Harness</span>
+          <div class="flex-1 h-px bg-zinc-800"></div>
         </div>
         <textarea
           id="batchDomains"
           rows="3"
           placeholder="example.com&#10;google.com&#10;github.com"
-          class="w-full font-mono text-xs bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none"
+          class="w-full font-mono text-xs bg-black/30 border border-white/10 rounded-md px-3 py-2 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none"
         ></textarea>
         <div class="flex items-center gap-2 mt-2">
-          <label class="text-xs text-slate-500">Repeats:</label>
+          <label class="text-xs text-zinc-500">Repeats:</label>
           <input id="batchRepeats" type="number" value="3" min="1" max="20"
-            class="w-14 font-mono text-xs bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-200 focus:outline-none focus:ring-2 focus:ring-violet-500/50" />
+            class="w-14 font-mono text-xs bg-black/30 border border-white/10 rounded-md px-2 py-1 text-zinc-200 focus:outline-none focus:ring-2 focus:ring-violet-500/50" />
           <button onclick="runBatch()"
-            class="ml-auto px-3 py-1 rounded-lg bg-violet-700 hover:bg-violet-600 text-xs font-semibold text-white transition active:scale-95">
+            class="ml-auto px-3 py-1 rounded-md bg-violet-600 hover:bg-violet-500 text-xs font-semibold text-white transition active:scale-95 shadow-lg shadow-violet-500/20">
             Run Batch
           </button>
         </div>
-        <div id="batchResult" class="hidden mt-3 rounded-lg bg-slate-950 border border-slate-800 p-3">
-          <pre id="batchPre" class="font-mono text-xs text-slate-300 whitespace-pre-wrap"></pre>
+        <div id="batchResult" class="hidden mt-3 rounded-md bg-black/40 border border-white/10 p-3">
+          <pre id="batchPre" class="font-mono text-xs text-zinc-300 whitespace-pre-wrap"></pre>
         </div>
       </div>
     </aside>
   </main>
 
   <!-- ══════════════════════════════════════════ APPROVAL GATE MODAL -->
-  <div id="approvalModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-8 max-w-md w-full animate-fade-in">
+  <div id="approvalModal" class="hidden fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+    <div class="bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl shadow-black/50 p-8 max-w-md w-full animate-fade-in">
 
       <!-- Icon -->
       <div class="flex justify-center mb-5">
@@ -391,24 +387,24 @@
       </div>
 
       <h2 class="text-center text-xl font-bold text-white mb-1">Approval Required</h2>
-      <p class="text-center text-xs text-slate-500 uppercase tracking-widest mb-5 font-semibold" id="modalRisk">Risk: —</p>
+      <p class="text-center text-xs text-zinc-500 uppercase tracking-widest mb-5 font-semibold" id="modalRisk">Risk: —</p>
 
       <!-- Finding -->
-      <div class="bg-slate-950 rounded-xl border border-slate-800 px-4 py-3 mb-6">
-        <p class="text-xs text-slate-500 mb-1 uppercase tracking-wider font-semibold">Critic Finding</p>
-        <p id="modalFinding" class="text-sm text-slate-300 font-mono leading-relaxed"></p>
+      <div class="bg-black/40 rounded-lg border border-white/10 px-4 py-3 mb-6">
+        <p class="text-xs text-zinc-500 mb-1 uppercase tracking-wider font-semibold">Critic Finding</p>
+        <p id="modalFinding" class="text-sm text-zinc-300 font-mono leading-relaxed"></p>
       </div>
 
-      <p class="text-center text-sm text-slate-400 mb-5">The critic has flagged this domain. Approve to send an alert, or deny to suppress.</p>
+      <p class="text-center text-sm text-zinc-400 mb-5">The critic has flagged this domain. Approve to send an alert, or deny to suppress.</p>
 
       <!-- Buttons -->
       <div class="flex gap-3">
         <button id="denyBtn" onclick="submitApproval('deny')"
-          class="flex-1 py-3 rounded-xl border border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500/20 font-semibold text-sm transition active:scale-95">
+          class="flex-1 py-3 rounded-md border border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500/20 font-semibold text-sm transition active:scale-95">
           ✕ Deny
         </button>
         <button id="approveBtn" onclick="submitApproval('approve')"
-          class="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm transition active:scale-95 shadow-lg">
+          class="flex-1 py-3 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm transition active:scale-95 shadow-lg shadow-emerald-500/20">
           ✓ Approve
         </button>
       </div>
@@ -497,7 +493,7 @@
       liveLabel.className = `text-xs font-mono ${
         status === 'running' ? 'text-cyan-400' :
         status === 'waiting' ? 'text-amber-400' :
-        status === 'done'    ? 'text-emerald-400' : 'text-slate-500'}`;
+        status === 'done'    ? 'text-emerald-400' : 'text-zinc-500'}`;
     }
 
     // ── Reset UI ──────────────────────────────────────────────────────────────
@@ -509,7 +505,7 @@
       bbVersionCount = 0;
       traceCountEl.textContent = '0 events';
       bbCode.textContent = '// awaiting first event…';
-      bbCode.className = 'text-slate-600 italic';
+      bbCode.className = 'text-zinc-600 italic';
       bbVersionEl.textContent = 'v0';
       verdictCard.classList.add('hidden');
       rcaCard.classList.add('hidden');
@@ -529,10 +525,10 @@
       traceCountEl.textContent = `${traceRowCount} event${traceRowCount !== 1 ? 's' : ''}`;
 
       const cfg    = STATUS_CONFIG[ev.status] || STATUS_CONFIG.ok;
-      const agentC = AGENT_COLORS[ev.agent] || 'text-slate-300';
+      const agentC = AGENT_COLORS[ev.agent] || 'text-zinc-300';
 
       const row = document.createElement('div');
-      row.className = 'trace-row grid grid-cols-[90px_100px_1fr_80px_60px] gap-3 px-4 py-2.5 hover:bg-slate-800/40 transition-colors text-sm';
+      row.className = 'trace-row grid grid-cols-[90px_100px_1fr_80px_60px] gap-3 px-4 py-2.5 hover:bg-zinc-800/50 transition-colors text-sm';
       row.innerHTML = `
         <span class="font-mono font-medium text-xs ${agentC} truncate self-center">${esc(ev.agent)}</span>
         <span class="self-center">
@@ -540,11 +536,11 @@
             <span>${cfg.dot}</span>${cfg.label}
           </span>
         </span>
-        <span class="font-mono text-xs text-slate-400 self-center leading-relaxed">${esc(ev.rationale || ev.note || '')}</span>
-        <span class="font-mono text-xs text-right self-center ${ev.latency_ms > 2000 ? 'text-amber-400' : 'text-slate-500'}">
+        <span class="font-mono text-xs text-zinc-400 self-center leading-relaxed">${esc(ev.rationale || ev.note || '')}</span>
+        <span class="font-mono text-xs text-right self-center ${ev.latency_ms > 2000 ? 'text-amber-400' : 'text-zinc-500'}">
           ${ev.latency_ms != null ? ev.latency_ms + ' ms' : '—'}
         </span>
-        <span class="font-mono text-xs text-right self-center ${ev.retries > 0 ? 'text-amber-400 font-semibold' : 'text-slate-600'}">
+        <span class="font-mono text-xs text-right self-center ${ev.retries > 0 ? 'text-amber-400 font-semibold' : 'text-zinc-600'}">
           ${ev.retries != null ? ev.retries : '—'}
         </span>
       `;
@@ -558,7 +554,7 @@
     function updateBlackboard(bb) {
       bbVersionCount++;
       bbVersionEl.textContent = `v${bbVersionCount}`;
-      bbCode.className = 'text-slate-300';
+      bbCode.className = 'text-zinc-300';
       bbCode.textContent = JSON.stringify(bb, null, 2);
     }
 
@@ -573,7 +569,7 @@
       const verdictIcons = { healthy: '✓ HEALTHY', degraded: '⚠ DEGRADED', at_risk: '✕ AT RISK' };
       const rc = riskColors[ev.risk] || riskColors.low;
 
-      verdictCard.className = `rounded-xl border ${rc.card} bg-slate-900/80 p-5 animate-fade-in transition-all verdict-${v}`;
+      verdictCard.className = `rounded-xl border ${rc.card} bg-zinc-900/80 shadow-lg shadow-black/50 p-5 animate-fade-in transition-all verdict-${v}`;
       verdictCard.classList.remove('hidden');
 
       document.getElementById('verdictBadge').className  = `text-2xl font-bold font-mono uppercase tracking-wide ${rc.badge}`;
@@ -618,17 +614,17 @@
         // Add a UI row for the approval decision
         const cfg = action === 'approve' ? STATUS_CONFIG.ok : STATUS_CONFIG.failed;
         const row = document.createElement('div');
-        row.className = 'trace-row grid grid-cols-[90px_100px_1fr_80px_60px] gap-3 px-4 py-2.5 bg-slate-800/30 text-sm border-l-2 ' + (action === 'approve' ? 'border-emerald-500' : 'border-red-500');
+        row.className = 'trace-row grid grid-cols-[90px_100px_1fr_80px_60px] gap-3 px-4 py-2.5 bg-zinc-800/30 text-sm border-l-2 ' + (action === 'approve' ? 'border-emerald-500' : 'border-red-500');
         row.innerHTML = `
-          <span class="font-mono text-xs text-slate-500 self-center">human</span>
+          <span class="font-mono text-xs text-zinc-500 self-center">human</span>
           <span class="self-center">
             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${cfg.bg} ${cfg.text} ${cfg.border}">
               ${action === 'approve' ? '✓ APPROVED' : '✕ DENIED'}
             </span>
           </span>
-          <span class="font-mono text-xs text-slate-500 self-center">${action === 'approve' ? 'Alert authorized by operator' : 'Alert suppressed by operator'}</span>
-          <span class="text-slate-600 text-xs text-right self-center">—</span>
-          <span class="text-slate-600 text-xs text-right self-center">—</span>
+          <span class="font-mono text-xs text-zinc-500 self-center">${action === 'approve' ? 'Alert authorized by operator' : 'Alert suppressed by operator'}</span>
+          <span class="text-zinc-600 text-xs text-right self-center">—</span>
+          <span class="text-zinc-600 text-xs text-right self-center">—</span>
         `;
         traceBody.appendChild(row);
         traceRowCount++;
@@ -680,7 +676,7 @@
       actionsEl.innerHTML = '';
       (rca.recommended_actions || []).forEach((action, i) => {
         const li = document.createElement('li');
-        li.className = 'flex items-start gap-2 text-slate-300';
+        li.className = 'flex items-start gap-2 text-zinc-300';
         li.innerHTML = `
           <span class="shrink-0 w-5 h-5 rounded-full bg-violet-500/20 border border-violet-500/30
                        text-violet-400 text-xs font-bold flex items-center justify-center mt-0.5">${i + 1}</span>
