@@ -1,119 +1,139 @@
-# Domain & Website Guardian
 
-A multi-agent system that audits a domain the way an SRE would: is it
-resolving, is the site up, is the TLS cert about to expire, is the
-registration about to lapse -- and it does this by planning, delegating to
-specialist agents, calling real external services, and recovering when one
-of them fails, rather than a single prompt guessing at the answer.
+# 🛡️ Domain Guardian
 
-## Architecture
+**An Autonomous, Multi-Agent Level 1 Site Reliability Engineer**
+
+Domain Guardian is a production-grade multi-agent system that automates the 3 AM incident triage process. It runs a rigorous, deterministic diagnostic runbook against any domain (checking DNS, TLS, Uptime, and RDAP), gracefully handles network edge cases, and synthesizes the findings into a human-readable Root Cause Analysis (RCA) using Gemini. 
+
+It prepares the diagnosis, formats an actionable Slack payload, and stops at a hard Human-in-the-Loop (HITL) approval gate, ensuring safe and accountable automation.
+
+---
+
+## ✨ Key Features
+
+* **Deterministic Agents, Zero Hallucinations:** Network checks (TLS expiration dates, DNS array parsing, HTTP status codes) are performed by deterministic Python agents. AI is strictly confined to post-mortem synthesis, eliminating the risk of factual hallucinations.
+* **Real-World Resilience:** Hardened to survive actual internet edge cases. It bypasses WAF/Bot protections (Cloudflare/Akamai) with realistic User-Agents, gracefully extracts apex domains for RDAP, and automatically handles Internationalized Domain Names (IDN/Punycode).
+* **Asynchronous Streaming Architecture:** A `ThreadPoolExecutor` handles blocking network calls while a `queue.Queue` pipes live trace events to a FastAPI Server-Sent Events (SSE) endpoint, providing a real-time, non-blocking UI.
+* **Human-in-the-Loop (HITL) Gate:** The system never mutates state or sends alerts without human consent. A dedicated Critic agent pauses the execution thread (`threading.Event`) to await manual web UI approval.
+* **LLM-Powered Synthesis:** Once the deterministic runbook completes, a synthesis agent uses **Google Gemini** (`google-genai`) to generate a professional incident report and a ready-to-deploy Slack Block Kit payload.
+
+---
+
+## 🏗️ Architecture
+
+Domain Guardian utilizes a **Blackboard Pattern** for shared state and a multi-threaded web bridge for real-time observability.
+
+```mermaid
+graph TD
+    subgraph Frontend [Browser UI]
+        UI[Main Dashboard]
+        Modal[Approval Gate Modal]
+    end
+
+    subgraph Backend [FastAPI Server]
+        Init[POST /audit]
+        Stream[GET /stream <br> Server-Sent Events]
+        ApproveAPI[POST /approve]
+        Q[(Message Queue)]
+    end
+
+    subgraph Agents [Background Worker Thread]
+        Orch[Orchestrator]
+        BB[(Blackboard Shared State)]
+        Planner[Planner Agent]
+        Specialists[Specialist Agents<br>DNS, Uptime, Cert, RDAP]
+        Critic[Critic Agent]
+        RCA[RCA Agent]
+        WaitEvent((threading.Event))
+    end
+
+    %% Flow
+    UI --> Init
+    Init --> Orch
+    Orch --> Planner
+    Planner --> Specialists
+    Specialists <--> BB
+    Specialists -. "Trace Logs" .-> Q
+    Q -. "SSE" .-> Stream
+    Stream --> UI
+    
+    Orch --> Critic
+    Critic --> WaitEvent
+    Modal --> ApproveAPI
+    ApproveAPI --> WaitEvent
+    WaitEvent --> RCA
 
 ```
-Orchestrator (owns the stopping condition: steps + wall clock)
-  -> Planner            decides which agents run next, based on real results
-  -> Blackboard          shared state every agent reads/writes, versioned
-  -> dns_agent           Cloudflare DoH, falls back to Google DoH
-  -> rdap_agent          RDAP (rdap.org) for registration expiry
-  -> uptime_agent        real HTTPS GET, falls back to HTTP
-  -> cert_agent          real TLS handshake, reads certificate expiry
-  -> Critic              finds contradictions, can reject + force a re-run
-  -> Approval gate       human sign-off required before any risky action
-```
 
-Each agent wraps exactly one real tool call with retry + backoff + (where
-one exists) a fallback source. Two agents also decide *not* to call their
-tool at all when the blackboard already shows the precondition can't be met
-(no HTTPS response -> don't bother with a TLS handshake) -- that's
-deliberate tool-selection-under-uncertainty, not a shortcut.
+---
 
-## Why this needs more than one agent
+## 🚀 Getting Started
 
-Parsing a DNS-over-HTTPS response, doing a TLS handshake and reading a
-certificate, and reconciling four independent (and sometimes contradictory)
-data sources into one risk verdict are three different kinds of work. A
-single prompt would either hallucinate the numeric details or silently drop
-the cross-checking the critic does.
+### Prerequisites
 
-## Mapping to the challenge requirements
+* Python 3.9+
+* A Google Gemini API Key
 
-| Requirement | Where |
-|---|---|
-| Needs >1 agent, justified | 4 specialist agents + critic, see above |
-| Real planning/delegation | `planner.py` -- dispatch decisions quote the actual prior result |
-| Real external tool + malformed responses | `agents.py` -- DoH, RDAP, live HTTP, live TLS; malformed JSON/missing fields raise `RecoverableError` and get retried |
-| Survives a failed/slow/malformed step | retry+backoff -> fallback source -> graceful "failed"/"degraded" status, never a crash |
-| Readable trace | `trace.py` -- every action logged with agent, tool, inputs, output, one-line rationale, latency, retries |
-| Stopping condition | `budget.py` -- step count AND wall-clock timeout, owned by the orchestrator, not the agents |
-| Human approval for risky action | `approval.py` -- gates any medium/high-risk finding before "sending an alert" |
+### Installation
 
-Advanced directions covered: critic that can actually reject and force a
-bounded re-run (`critic.py`); shared blackboard; tool selection under
-uncertainty (agents self-skip); cost/latency measured per run, not
-estimated (every event has a real `latency_ms`); completion rate across
-repeated runs (`run_batch`).
-
-## Setup
-
+1. **Clone the repository:**
 ```bash
-pip install -r requirements.txt
+git clone [https://github.com/yourusername/domain-guardian.git](https://github.com/yourusername/domain-guardian.git)
+cd domain-guardian
+
 ```
 
-## Usage
 
+2. **Install dependencies:**
 ```bash
-# single domain, interactive approval prompt if risk is medium/high
-python main.py example.com
+pip install fastapi uvicorn requests google-genai python-dotenv
 
-# force an early stop to see the budget/stopping-condition in action
-python main.py example.com --max-steps 3
-
-# non-interactive (for demos/CI) -- auto-deny or auto-approve the gate
-python main.py example.com --auto-deny
-
-# completion-rate + cost/latency harness across repeated runs
-python main.py --batch domains.txt --repeats 5 --auto-deny
 ```
 
-`domains.txt` is just one domain per line.
 
-## Proving the recovery logic (no network needed)
+3. **Configure Environment:**
+Create a `.env` file in the root directory and add your Gemini API key:
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
 
+```
+
+
+4. **Run the Server:**
 ```bash
-python -m unittest discover -s tests -v
+uvicorn app:app --host 127.0.0.1 --port 8000 --reload
+
 ```
 
-These tests mock the network and assert, deterministically: the DNS agent
-actually falls back to a secondary resolver after the primary times out;
-the critic actually rejects a contradictory result and forces exactly one
-re-run; the orchestrator actually halts when the step budget runs out; and
-the whole pipeline survives every single tool failing at once without
-crashing, producing an honest "couldn't verify" verdict instead of a false
-all-clear.
 
-## Live demo tips
+5. **Access the Dashboard:**
+Open your browser and navigate to [http://127.0.0.1:8000](http://127.0.0.1:8000?utm_source=gemini)
 
-- **A real, controllable TLS failure**: point `cert_agent` at
-  `expired.badssl.com` or `self-signed.badssl.com` -- these are public test
-  domains that exist specifically to have broken certificates. This
-  triggers the real retry -> graceful-degrade path, no mocking required.
-- **A real DNS failure**: any domain that doesn't exist, e.g.
-  `this-domain-should-not-exist-12345.com`.
-- **Force the approval gate on a healthy domain**: temporarily raise
-  `CERT_WARNING_DAYS` / `RDAP_WARNING_DAYS` in `critic.py` -- e.g. set
-  `RDAP_WARNING_DAYS = 9000` so almost any domain trips a "medium" finding.
-- **Force the stopping condition**: `--max-steps 3` on any domain.
-- **Force total-failure degradation live**: disconnect your network
-  mid-run and watch it still finish with a verdict instead of crashing
-  (this is exactly what the sandboxed test run below demonstrated for real).
+---
 
-## Known limitations / next steps with more time
+## 🖥️ User Interface
 
-- DNS and RDAP are dispatched sequentially; they're independent and could
-  run concurrently.
-- The trace is in-memory only; a real deployment would persist it (SQLite/
-  JSON file per run) for later audit.
-- No real notification is sent on approval -- `approved_action` is a stub
-  you'd wire to an actual email/Slack call.
-- A small web dashboard over the JSON trace would make the blackboard's
-  evolution and the critic's rejection visible in real time instead of a
-  printed table.
+The frontend is a single-file, zero-build dashboard built with Tailwind CSS and Vanilla JavaScript.
+
+* **Live Trace Table:** Watch the Planner delegate tasks to Specialist agents in real-time.
+* **Blackboard Viewer:** Inspect the live JSON state as agents read and mutate shared memory.
+* **Incident Report Card:** View the AI-synthesized RCA and one-click copy the Slack Block Kit payload.
+* **Chaos Mode:** Simulate network failures (e.g., DNS Timeout, Expired Cert) directly from the UI to test agent recovery logic.
+
+---
+
+## 🛠️ Extensibility (What's Next)
+
+The modular Blackboard architecture makes it trivial to add new capabilities:
+
+* **Remediation Agents:** Add a "DNS Mutator" agent capable of failing over A-records via the Cloudflare API once the Uptime agent detects a 502 error.
+* **Temporal Memory:** Connect a SQLite historian agent to track domain degradation (e.g., latency spikes) over 30-day periods.
+* **Distributed Checks:** Implement a Fleet Commander agent to spin up ephemeral AWS Lambdas for multi-region uptime verification.
+
+---
+
+*Built as a resilient, multi-agent solution for the modern SRE stack.*
+
+```
+
+```   
