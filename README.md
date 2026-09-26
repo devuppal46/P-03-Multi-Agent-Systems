@@ -1,5 +1,4 @@
-
-# 🛡️ Domain Guardian
+# Domain Guardian
 
 **An Autonomous, Multi-Agent Level 1 Site Reliability Engineer**
 
@@ -9,7 +8,7 @@ It prepares the diagnosis, formats an actionable Slack payload, and stops at a h
 
 ---
 
-## ✨ Key Features
+## Key Features
 
 * **Deterministic Agents, Zero Hallucinations:** Network checks (TLS expiration dates, DNS array parsing, HTTP status codes) are performed by deterministic Python agents. AI is strictly confined to post-mortem synthesis, eliminating the risk of factual hallucinations.
 * **Real-World Resilience:** Hardened to survive actual internet edge cases. It bypasses WAF/Bot protections (Cloudflare/Akamai) with realistic User-Agents, gracefully extracts apex domains for RDAP, and automatically handles Internationalized Domain Names (IDN/Punycode).
@@ -19,10 +18,11 @@ It prepares the diagnosis, formats an actionable Slack payload, and stops at a h
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 Domain Guardian utilizes a **Blackboard Pattern** for shared state and a multi-threaded web bridge for real-time observability.
 
+### Component Map
 ```mermaid
 graph TD
     subgraph Frontend [Browser UI]
@@ -65,9 +65,44 @@ graph TD
 
 ```
 
+### Execution Flow & Streaming
+
+The following sequence illustrates how the synchronous multi-agent system safely streams data to the asynchronous web UI, including the human approval pausing mechanism.
+
+```mermaid
+sequenceDiagram
+    participant UI as Browser UI
+    participant API as FastAPI Backend
+    participant Sys as Domain Guardian System
+
+    UI->>API: 1. POST /audit (domain)
+    Note over API: Creates Run ID & threading.Event
+    
+    UI->>API: 2. GET /audit/{id}/stream (SSE)
+    Note over API: Starts Background Thread
+
+    Sys-->>API: yields trace step
+    API-->>UI: 3. data: {"agent": "dns", ...}
+    
+    Sys-->>API: yields trace step
+    API-->>UI: 4. data: {"agent": "uptime", ...}
+
+    Note over Sys: Critic flags risk, pauses execution<br/>(thread blocks on event.wait())
+    Sys-->>API: yields REQUIRES_APPROVAL
+    API-->>UI: 5. data: {"type": "REQUIRES_APPROVAL"}
+    Note over UI: UI shows Modal
+
+    UI->>API: 6. POST /approve (action="Approve")
+    Note over API: Sets Event flag<br/>(unblocks system thread)
+
+    Sys-->>API: Audit resumes and finishes
+    API-->>UI: 7. data: {"status": "Complete"}
+
+```
+
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -111,7 +146,7 @@ Open your browser and navigate to [http://127.0.0.1:8000](http://127.0.0.1:8000?
 
 ---
 
-## 🖥️ User Interface
+## User Interface
 
 The frontend is a single-file, zero-build dashboard built with Tailwind CSS and Vanilla JavaScript.
 
@@ -122,18 +157,10 @@ The frontend is a single-file, zero-build dashboard built with Tailwind CSS and 
 
 ---
 
-## 🛠️ Extensibility (What's Next)
+## Extensibility (What's Next)
 
 The modular Blackboard architecture makes it trivial to add new capabilities:
 
 * **Remediation Agents:** Add a "DNS Mutator" agent capable of failing over A-records via the Cloudflare API once the Uptime agent detects a 502 error.
 * **Temporal Memory:** Connect a SQLite historian agent to track domain degradation (e.g., latency spikes) over 30-day periods.
 * **Distributed Checks:** Implement a Fleet Commander agent to spin up ephemeral AWS Lambdas for multi-region uptime verification.
-
----
-
-*Built as a resilient, multi-agent solution for the modern SRE stack.*
-
-```
-
-```   
