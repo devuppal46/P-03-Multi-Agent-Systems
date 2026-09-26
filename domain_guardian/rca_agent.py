@@ -22,12 +22,8 @@ from datetime import datetime, timezone
 from google import genai
 from google.genai import types as genai_types
 
-# ── Config ────────────────────────────────────────────────────────────────────
-
 GEMINI_MODEL = "gemini-1.5-flash"
 _MAX_RETRIES = 2
-
-# ── System prompt ─────────────────────────────────────────────────────────────
 
 _SYSTEM_PROMPT = """You are a senior Site Reliability Engineer (SRE) writing an automated incident report.
 You will receive JSON data from a domain health audit that ran four independent checks:
@@ -64,8 +60,6 @@ Rules:
   • If DNS fell back to a secondary resolver, mention it — it signals fragility
   • If P4 (all healthy), write a positive confirmation, not an incident report
 """
-
-# ── Public API ────────────────────────────────────────────────────────────────
 
 def synthesize(
     domain: str,
@@ -113,7 +107,6 @@ def synthesize(
             latency_ms = round((time.time() - t0) * 1000)
             raw = response.text.strip()
 
-            # Strip markdown fences if model adds them despite instructions
             if raw.startswith("```"):
                 lines = raw.split("\n")
                 raw = "\n".join(
@@ -134,9 +127,6 @@ def synthesize(
                 time.sleep(1.5 * (attempt + 1))
 
     return _fallback(domain, verdict, elapsed_s, reason=last_error or "exhausted retries")
-
-
-# ── Internal helpers ──────────────────────────────────────────────────────────
 
 def _build_audit_summary(domain, blackboard, trace_events, verdict, elapsed_s):
     dns    = blackboard.get("dns", {}) or {}

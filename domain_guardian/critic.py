@@ -26,10 +26,6 @@ def review(domain, blackboard, budget, trace, rerun_agent_fn):
     cert = blackboard.read("cert")
     rdap = blackboard.read("rdap")
 
-    # Contradiction check: DNS says the name doesn't resolve, but the HTTP
-    # agent still got a live response back. That's internally inconsistent
-    # (stale resolver cache, wildcard DNS) -- reject and force one
-    # confirmation re-run rather than silently trusting either result.
     if (dns and not dns.get("resolved") and uptime and uptime.get("reachable")
             and not blackboard.read("_uptime_rechecked")):
         trace.log(agent="critic", action="reject", inputs={"dns": dns, "uptime": uptime},

@@ -13,18 +13,12 @@ from datetime import datetime, timezone
 
 import requests
 
-# ── Shared browser-like User-Agent ────────────────────────────────────────────
-# Many WAF/CDN providers (Cloudflare, Akamai, Fastly) block the default
-# Python-requests user-agent with a 403 or 503.  Using a realistic browser
-# string avoids this without breaking any APIs that don't care.
 _BROWSER_UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/124.0.0.0 Safari/537.36"
 )
 
-
-# ── Apex-domain helper ────────────────────────────────────────────────────────
 def _apex_domain(domain: str) -> str:
     """Return the registrable (apex) domain by stripping leading sub-labels.
 
@@ -38,17 +32,14 @@ def _apex_domain(domain: str) -> str:
     >>> _apex_domain("github.com")      # -> "github.com"
     >>> _apex_domain("a.b.co.uk")       # -> "b.co.uk"
     """
-    # Two-part TLDs that need three labels to form the apex
     TWO_PART_TLDS = {
         "co.uk", "co.in", "co.jp", "co.nz", "co.za", "co.kr",
         "com.au", "com.br", "com.cn", "com.mx", "com.sg", "com.ar",
         "net.au", "org.uk", "me.uk", "gov.uk", "ac.uk",
     }
     parts = domain.rstrip(".").split(".")
-    # Check if the last two labels form a known two-part TLD
     if len(parts) >= 3 and ".".join(parts[-2:]) in TWO_PART_TLDS:
         return ".".join(parts[-3:])
-    # Default: keep only the last two labels
     return ".".join(parts[-2:]) if len(parts) >= 2 else domain
 
 
@@ -170,8 +161,6 @@ class UptimeAgent(ToolAgent):
     tool_name = "http_get"
 
     def _get(self, scheme, domain):
-        # FIX 1: Pass a realistic browser User-Agent so WAF/CDN providers
-        # (Cloudflare, Akamai) don't block us with 403/503.
         headers = {"User-Agent": _BROWSER_UA}
         try:
             r = requests.get(f"{scheme}://{domain}", timeout=5,
@@ -185,8 +174,6 @@ class UptimeAgent(ToolAgent):
     def call_tool(self, domain, blackboard):
         dns = blackboard.read("dns")
         if dns is not None and not dns.get("resolved", True):
-            # Tool-selection under uncertainty: DNS already showed this name
-            # doesn't resolve, so an HTTP call would just waste a step.
             result = {"scheme": None, "status_code": None, "final_url": None, "reachable": False}
             blackboard.write("uptime", result, agent=self.name)
             return result
@@ -208,13 +195,11 @@ class UptimeAgent(ToolAgent):
 class CertAgent(ToolAgent):
     name = "cert_agent"
     tool_name = "tls_handshake"
-    max_retries = 1  # a hung TLS handshake is expensive to retry repeatedly
+    max_retries = 1
 
     def call_tool(self, domain, blackboard):
         uptime = blackboard.read("uptime")
         if uptime is None or uptime.get("scheme") != "https":
-            # Another self-skip: no point attempting a TLS handshake against
-            # a host we already know isn't answering over HTTPS.
             result = {"checked": False, "days_left": None}
             blackboard.write("cert", result, agent=self.name)
             return result
@@ -245,9 +230,6 @@ class RDAPAgent(ToolAgent):
     tool_name = "rdap_lookup"
 
     def call_tool(self, domain, blackboard):
-        # FIX 2: RDAP registries only hold records for apex/root domains.
-        # Strip any leading subdomains before querying so that
-        # e.g. "api.github.com" becomes "github.com".
         apex = _apex_domain(domain)
 
         try:
@@ -255,9 +237,6 @@ class RDAPAgent(ToolAgent):
         except (requests.Timeout, requests.ConnectionError) as e:
             raise RecoverableError(f"RDAP lookup failed: {e}")
 
-        # 404 can mean: TLD not supported by rdap.org, or truly unregistered.
-        # Either way it is not a transient error worth retrying — return a
-        # graceful "unknown" result instead of a hard "not found".
         if r.status_code == 404:
             result = {
                 "found": False,

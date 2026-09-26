@@ -41,9 +41,8 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 
-# Load .env before anything else so GEMINI_API_KEY is available to rca_agent
 from dotenv import load_dotenv
-load_dotenv()  # reads .env from the current working directory
+load_dotenv()
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -51,7 +50,6 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-# Real domain_guardian imports
 from domain_guardian import approval as approval_mod
 from domain_guardian.blackboard import Blackboard
 from domain_guardian.budget import Budget
@@ -60,8 +58,6 @@ from domain_guardian import planner as planner_mod
 from domain_guardian.agents import CertAgent, DNSAgent, RDAPAgent, UptimeAgent
 from domain_guardian.trace import TraceLogger
 from domain_guardian import rca_agent
-
-# ── App setup ─────────────────────────────────────────────────────────────────
 
 app = FastAPI(title="Domain Guardian UI", version="2.0.0")
 
@@ -76,20 +72,7 @@ app.mount("/static", StaticFiles(directory="."), name="static")
 
 _executor = ThreadPoolExecutor(max_workers=8)
 
-# ── In-memory run state ───────────────────────────────────────────────────────
-
 runs: dict[str, dict] = {}
-# Shape:
-# {
-#   "domain":           str,
-#   "chaos":            str,
-#   "start_ts":         float,
-#   "event_queue":      queue.Queue,   # bridge between audit thread → SSE stream
-#   "approval_event":   threading.Event,
-#   "approval_action":  bool | None,   # True=approve, False=deny
-# }
-
-# ── Request / Response models ─────────────────────────────────────────────────
 
 class AuditRequest(BaseModel):
     domain: str
@@ -97,15 +80,13 @@ class AuditRequest(BaseModel):
 
 
 class ApproveRequest(BaseModel):
-    action: str   # "approve" | "deny"
+    action: str
 
 
 class BatchRequest(BaseModel):
     domains: list[str]
     repeats: int = 3
 
-
-# ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @app.get("/")
 async def serve_index():
@@ -125,7 +106,6 @@ def _idna_encode(domain: str) -> str:
 
 @app.post("/audit")
 async def start_audit(req: AuditRequest):
-    # FIX 3: Sanitize IDN domains at the API boundary before any agent sees them.
     domain = _idna_encode(req.domain)
     run_id = str(uuid.uuid4())[:8]
     runs[run_id] = {
@@ -158,7 +138,7 @@ async def approve_audit(run_id: str, req: ApproveRequest):
         raise HTTPException(status_code=400, detail="action must be approve or deny")
     state = runs[run_id]
     state["approval_action"] = (req.action == "approve")
-    state["approval_event"].set()       # unblocks the audit thread
+    state["approval_event"].set()
     return {"status": "ok"}
 
 
@@ -186,8 +166,6 @@ async def run_batch_endpoint(req: BatchRequest):
     }
 
 
-# ── Bridge 1: Streaming TraceLogger ──────────────────────────────────────────
-
 class StreamingTraceLogger(TraceLogger):
     """
     Drops every logged event onto a queue.Queue immediately so the SSE
@@ -208,7 +186,6 @@ class StreamingTraceLogger(TraceLogger):
             rationale=rationale, latency_ms=latency_ms, retries=retries,
             confidence=confidence, status=status,
         )
-        # Map the agent's internal status names to the UI's expected names
         ui_status = {
             "ok":       "ok",
             "degraded": "degraded",
@@ -232,9 +209,8 @@ class StreamingTraceLogger(TraceLogger):
             "step":       event["step"],
             "elapsed_s":  round(time.time() - self._start_ts, 2),
         })
-        # Push blackboard snapshot after every write so the UI panel updates
         bb_snap = {k: v for k, v in self._bb.snapshot().items()
-                   if not k.startswith("_")}  # hide internal flags
+                   if not k.startswith("_")}
         if bb_snap:
             self._q.put({
                 "type":       "blackboard_update",
@@ -246,8 +222,6 @@ class StreamingTraceLogger(TraceLogger):
         return event
 
 
-# ── Bridge 2: Web approval gate ───────────────────────────────────────────────
-
 def _make_web_approval_fn(run_id: str):
     """
     Returns a drop-in replacement for approval.request_approval().
@@ -257,7 +231,6 @@ def _make_web_approval_fn(run_id: str):
     def _web_approval(action, risk, trace, auto_decision=None):
         state = runs[run_id]
 
-        # Log the pending event exactly as the real function would
         trace.log(
             agent="approval_gate", action="requested",
             inputs={"action": action, "risk": risk},
@@ -265,7 +238,6 @@ def _make_web_approval_fn(run_id: str):
             status="pending",
         )
 
-        # Tell the UI to show the modal
         state["event_queue"].put({
             "type":      "requires_approval",
             "risk":      risk,
@@ -274,8 +246,7 @@ def _make_web_approval_fn(run_id: str):
             "elapsed_s": round(time.time() - state["start_ts"], 2),
         })
 
-        # Block the audit thread until the browser responds
-        state["approval_event"].wait(timeout=300)   # 5-min safety timeout
+        state["approval_event"].wait(timeout=300)
         decision = bool(state["approval_action"])
 
         source = "human (web UI)"
@@ -289,8 +260,6 @@ def _make_web_approval_fn(run_id: str):
 
     return _web_approval
 
-
-# ── Bridge 3: Real audit worker (runs in thread) ──────────────────────────────
 
 AGENTS = {
     "dns_agent":    DNSAgent(),
@@ -316,7 +285,6 @@ def _real_audit_worker(run_id: str):
     budget     = Budget(max_steps=12, max_seconds=25.0)
     done       = []
 
-    # Monkey-patch approval for this run only (thread-local via closure)
     original_fn = approval_mod.request_approval
     approval_mod.request_approval = _make_web_approval_fn(run_id)
 
@@ -356,7 +324,6 @@ def _real_audit_worker(run_id: str):
                 "findings": ["run stopped before a full audit completed"],
             }
 
-        # ── Verdict event ─────────────────────────────────────────────────
         clean_bb = {k: v for k, v in blackboard.snapshot().items()
                     if not k.startswith("_")}
         q.put({
@@ -370,8 +337,6 @@ def _real_audit_worker(run_id: str):
             "total_steps": budget.steps_used,
         })
 
-        # ── LLM RCA synthesis (runs after verdict; ~1-2 s Gemini latency) ──
-        # Reads GEMINI_API_KEY from environment; gracefully degrades if absent.
         try:
             rca_result = rca_agent.synthesize(
                 domain=domain,
@@ -387,7 +352,6 @@ def _real_audit_worker(run_id: str):
                 "elapsed_s": round(time.time() - start, 2),
             })
         except Exception as rca_exc:
-            # Never let RCA failure block the stream close
             q.put({
                 "type":    "rca",
                 "rca":     {
@@ -411,17 +375,13 @@ def _real_audit_worker(run_id: str):
             "message": str(exc),
         })
     finally:
-        # Always restore original approval function
         approval_mod.request_approval = original_fn
-        # None sentinel tells the SSE wrapper to close the stream
         q.put(None)
 
 
 def _risk_to_verdict(risk: str) -> str:
     return {"low": "healthy", "medium": "degraded", "high": "at_risk"}.get(risk, "unknown")
 
-
-# ── SSE helpers ───────────────────────────────────────────────────────────────
 
 def _sse_event(data: dict) -> str:
     return f"data: {json.dumps(data)}\n\n"
@@ -443,14 +403,12 @@ async def _sse_wrapper(run_id: str):
     """
     loop = asyncio.get_event_loop()
 
-    # Start the real audit in a thread
     loop.run_in_executor(_executor, _real_audit_worker, run_id)
 
     state = runs[run_id]
     q     = state["event_queue"]
 
     while True:
-        # Non-blocking drain — yield control back to the event loop between checks
         try:
             event = q.get_nowait()
         except queue.Empty:
@@ -458,9 +416,6 @@ async def _sse_wrapper(run_id: str):
             continue
 
         if event is None:
-            # Terminal sentinel — audit thread has finished (after rca event)
             break
 
         yield _sse_event(event)
-        # No early break on 'verdict' — keep draining until None so the
-        # rca event also reaches the browser.

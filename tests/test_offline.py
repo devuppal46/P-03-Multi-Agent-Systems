@@ -42,8 +42,8 @@ class TestDNSFallback(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertTrue(result["resolved"])
         statuses = [e["status"] for e in trace.events]
-        self.assertIn("degraded", statuses)  # the fallback event
-        self.assertEqual(mock_get.call_count, 4)  # 3 failed primary attempts + 1 fallback
+        self.assertIn("degraded", statuses)
+        self.assertEqual(mock_get.call_count, 4)
 
 
 class TestCriticRejection(unittest.TestCase):
@@ -62,7 +62,7 @@ class TestCriticRejection(unittest.TestCase):
 
         verdict = critic_mod.review("example.com", bb, budget, trace, fake_rerun)
 
-        self.assertEqual(rerun_calls, ["uptime_agent"])  # exactly one bounded re-run
+        self.assertEqual(rerun_calls, ["uptime_agent"])
         self.assertTrue(any(e["status"] == "rejected" for e in trace.events))
         self.assertEqual(verdict["risk"], "high")
 
@@ -85,11 +85,9 @@ class TestTotalNetworkFailureDegradesGracefully(unittest.TestCase):
             result = run_domain_audit("broken-example.test", auto_decision=False,
                                        max_steps=30, max_seconds=20, verbose=False)
 
-        # Nothing crashed, and the system is honest that it couldn't verify --
-        # it does NOT report a false "all clear".
         self.assertIn(result["verdict"]["risk"], ("medium", "high"))
         self.assertFalse(result["stopped_early"])
-        self.assertFalse(result["approved_action"])  # auto_decision=False
+        self.assertFalse(result["approved_action"])
         self.assertTrue(any(e["agent"] == "approval_gate" and e["action"] == "requested"
                              for e in result["trace"]))
         self.assertTrue(any(e["status"] == "failed" for e in result["trace"]))

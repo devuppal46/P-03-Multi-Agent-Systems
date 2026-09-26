@@ -3,859 +3,1390 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Domain Guardian — Live Audit</title>
-  <meta name="description" content="Real-time domain health auditing: DNS, TLS, Uptime, and RDAP via a multi-agent system." />
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>Domain Guardian</title>
+  <meta name="description" content="Real-time domain health auditing: DNS, TLS, uptime and registration, checked by a team of agents." />
+  <meta name="color-scheme" content="dark light" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Inter', 'ui-sans-serif', 'system-ui'],
-            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
-          },
-          animation: {
-            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-            'fade-in': 'fadeIn 0.4s ease-out forwards',
-            'slide-in': 'slideIn 0.3s ease-out forwards',
-          },
-          keyframes: {
-            fadeIn: { '0%': { opacity: '0', transform: 'translateY(6px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
-            slideIn: { '0%': { opacity: '0', transform: 'translateX(-8px)' }, '100%': { opacity: '1', transform: 'translateX(0)' } },
-          }
-        }
-      }
-    }
-  </script>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
   <style>
-    * { box-sizing: border-box; }
-    body { background: #000000; }
+    /* ═══════════════════════════════════════════════════════════ TOKENS */
+    :root {
+      --bg:          #08080a;
+      --bg-soft:     #0e0e11;
+      --text:        #f5f5f7;
+      --text-2:      #a1a1a6;
+      --text-3:      #6b6b72;
+      --surface:     rgba(255,255,255,.045);
+      --surface-2:   rgba(255,255,255,.075);
+      --surface-3:   rgba(255,255,255,.11);
+      --border:      rgba(255,255,255,.09);
+      --border-2:    rgba(255,255,255,.16);
+      --edge:        rgba(255,255,255,.08);
+      --shadow:      0 24px 80px rgba(0,0,0,.45);
 
-    /* Scrollbar styling */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #18181b; }
-    ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #52525b; }
+      --accent:      #7c8cff;
+      --accent-2:    #a5b0ff;
+      --accent-soft: rgba(124,140,255,.16);
+      --accent-ring: rgba(124,140,255,.35);
+      --on-accent:   #0a0b14;
 
-    /* Glow effects (subtle — used sparingly on accent buttons, not cards) */
-    .glow-cyan   { box-shadow: 0 0 16px rgba(34,211,238,0.15); }
-    .glow-green  { box-shadow: 0 0 16px rgba(74,222,128,0.15); }
-    .glow-red    { box-shadow: 0 0 16px rgba(248,113,113,0.15); }
-    .glow-amber  { box-shadow: 0 0 16px rgba(251,191,36,0.15); }
+      --ok:    #32d74b;
+      --warn:  #ffb340;
+      --fail:  #ff5a4f;
+      --info:  #64d2ff;
 
-    /* SSE row animation */
-    .trace-row { animation: fadeIn 0.35s ease-out forwards; }
+      --orb-1: rgba(124,140,255,.30);
+      --orb-2: rgba(100,210,255,.16);
+      --orb-3: rgba(191,90,242,.14);
 
-    /* Budget bar */
-    .budget-fill { transition: width 0.5s ease; }
+      --r-sm: 12px; --r-md: 16px; --r-lg: 24px; --r-xl: 30px;
+      --ease: cubic-bezier(.22,1,.36,1);
+      --spring: cubic-bezier(.34,1.56,.64,1);
 
-    /* Verdict glow */
-    .verdict-healthy  { box-shadow: 0 0 24px rgba(74,222,128,0.15); }
-    .verdict-degraded { box-shadow: 0 0 24px rgba(251,191,36,0.15); }
-    .verdict-at_risk  { box-shadow: 0 0 24px rgba(248,113,113,0.18); }
-
-    /* RCA card */
-    .rca-thinking {
-      background: linear-gradient(90deg, #27272a 25%, #3f3f46 50%, #27272a 75%);
-      background-size: 200% 100%;
-      animation: shimmer 1.6s infinite;
+      --sans: Inter, Geist, -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+      --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
     }
-    @keyframes shimmer {
-      0%   { background-position: 200% 0; }
-      100% { background-position: -200% 0; }
+    :root[data-theme="light"] {
+      --bg:        #f5f5f7;
+      --bg-soft:   #ececef;
+      --text:      #111113;
+      --text-2:    #6e6e73;
+      --text-3:    #9a9aa0;
+      --surface:   rgba(255,255,255,.62);
+      --surface-2: rgba(255,255,255,.8);
+      --surface-3: rgba(0,0,0,.06);
+      --border:    rgba(0,0,0,.08);
+      --border-2:  rgba(0,0,0,.14);
+      --edge:      rgba(255,255,255,.9);
+      --shadow:    0 24px 70px rgba(20,20,40,.10);
+      --accent:      #4f5fe8;
+      --accent-2:    #3947c9;
+      --accent-soft: rgba(79,95,232,.10);
+      --accent-ring: rgba(79,95,232,.28);
+      --on-accent:   #ffffff;
+      --ok: #1f9d3a; --warn: #c77700; --fail: #d93025; --info: #0a84c4;
+      --orb-1: rgba(124,140,255,.30);
+      --orb-2: rgba(100,210,255,.22);
+      --orb-3: rgba(255,160,200,.20);
     }
-    .rca-card { border-left: 3px solid transparent; }
-    .rca-P1   { border-left-color: #f87171; box-shadow: 0 0 24px rgba(248,113,113,0.12); }
-    .rca-P2   { border-left-color: #fbbf24; box-shadow: 0 0 24px rgba(251,191,36,0.12); }
-    .rca-P3   { border-left-color: #38bdf8; box-shadow: 0 0 18px rgba(56,189,248,0.1); }
-    .rca-P4   { border-left-color: #4ade80; box-shadow: 0 0 18px rgba(74,222,128,0.1); }
 
-    /* Copy button flash */
-    .copy-flash { animation: copyFlash 0.6s ease-out; }
-    @keyframes copyFlash {
-      0%   { background-color: rgba(74,222,128,0.3); }
-      100% { background-color: transparent; }
+    /* ═══════════════════════════════════════════════════════════ BASE */
+    *, *::before, *::after { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0; min-height: 100vh;
+      background: var(--bg); color: var(--text);
+      font-family: var(--sans); font-size: 15px; line-height: 1.5;
+      font-feature-settings: "cv11", "ss01", "ss03";
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      transition: background-color .5s var(--ease), color .5s var(--ease);
+    }
+    button, input, textarea, select { font: inherit; color: inherit; }
+    button { cursor: pointer; background: none; border: 0; padding: 0; }
+    ::selection { background: var(--accent-soft); }
+    .mono { font-family: var(--mono); font-feature-settings: "zero"; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 10px; }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+
+    /* ═══════════════════════════════════════════════════════ ATMOSPHERE */
+    .atmo { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+    .orb { position: absolute; border-radius: 50%; filter: blur(90px); will-change: transform; }
+    .orb-1 { width: 620px; height: 620px; background: var(--orb-1); top: -220px; left: -120px; animation: drift1 26s var(--ease) infinite alternate; }
+    .orb-2 { width: 520px; height: 520px; background: var(--orb-2); top: 30%; right: -180px; animation: drift2 32s var(--ease) infinite alternate; }
+    .orb-3 { width: 460px; height: 460px; background: var(--orb-3); bottom: -220px; left: 30%; animation: drift1 38s var(--ease) infinite alternate-reverse; }
+    .orb-cursor { width: 440px; height: 440px; left: 0; top: 0; margin: -220px 0 0 -220px; background: radial-gradient(circle, var(--accent-soft), transparent 65%); filter: blur(40px); opacity: .9; }
+    @keyframes drift1 { to { transform: translate3d(120px, 80px, 0) scale(1.12); } }
+    @keyframes drift2 { to { transform: translate3d(-140px, -60px, 0) scale(.92); } }
+    .grain {
+      position: absolute; inset: 0; opacity: .035; mix-blend-mode: overlay;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+    .gridlines {
+      position: absolute; inset: 0;
+      background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 72px 72px; opacity: .35;
+      mask-image: radial-gradient(ellipse 70% 50% at 50% 0%, #000 20%, transparent 75%);
     }
 
-    /* Modal backdrop */
-    #approvalModal {
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
+    /* ═══════════════════════════════════════════════════════ CURSOR */
+    .cursor, .cursor-dot {
+      position: fixed; left: 0; top: 0; z-index: 100; pointer-events: none;
+      border-radius: 999px; opacity: 0; will-change: transform;
+      transition: opacity .3s var(--ease);
+    }
+    .cursor {
+      width: 36px; height: 36px; margin: -18px 0 0 -18px;
+      border: 1px solid var(--border-2);
+      background: radial-gradient(circle, var(--accent-soft), transparent 70%);
+      backdrop-filter: blur(1px);
+    }
+    .cursor > i {
+      position: absolute; inset: 0; border-radius: inherit;
+      transition: transform .45s var(--spring), border-color .3s, background .3s, border-radius .35s var(--ease);
+      border: 1px solid transparent;
+    }
+    .cursor-dot { width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; background: var(--accent); }
+    body.has-cursor .cursor, body.has-cursor .cursor-dot { opacity: 1; }
+    .cursor { transition: opacity .3s var(--ease), width .35s var(--spring), height .35s var(--spring), margin .35s var(--spring), border-radius .35s var(--ease), background .3s, border-color .3s; }
+    body.cursor-hover .cursor { width: 56px; height: 56px; margin: -28px 0 0 -28px; border-color: var(--accent-ring); background: radial-gradient(circle, var(--accent-soft), transparent 75%); }
+    body.cursor-hover .cursor-dot { transform: scale(0) !important; }
+    body.cursor-text .cursor { width: 3px; height: 26px; margin: -13px 0 0 -1.5px; border-radius: 2px; background: var(--accent); border-color: transparent; }
+    body.cursor-text .cursor-dot { opacity: 0; }
+    body.cursor-down .cursor { width: 28px; height: 28px; margin: -14px 0 0 -14px; }
+
+    /* ═══════════════════════════════════════════════════════ LAYOUT */
+    .shell { position: relative; z-index: 1; max-width: 1240px; margin: 0 auto; padding: 0 24px 96px; }
+    @media (max-width: 640px) { .shell { padding: 0 16px 72px; } }
+
+    /* ═══════════════════════════════════════════════════════ GLASS + SPOTLIGHT */
+    .glass {
+      background: var(--surface);
+      backdrop-filter: blur(28px) saturate(150%);
+      -webkit-backdrop-filter: blur(28px) saturate(150%);
+      border: 1px solid var(--border);
+      box-shadow: inset 0 1px 0 var(--edge), var(--shadow);
+    }
+    .spot { position: relative; isolation: isolate; --mx: -999px; --my: -999px; }
+    .spot::before, .spot::after {
+      content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+      opacity: 0; transition: opacity .5s var(--ease);
+    }
+    /* soft interior light following the cursor */
+    .spot::before {
+      z-index: -1;
+      background: radial-gradient(520px circle at var(--mx) var(--my), var(--accent-soft), transparent 42%);
+    }
+    /* edge light: a masked 1px border that brightens near the cursor */
+    .spot::after {
+      padding: 1px;
+      background: radial-gradient(260px circle at var(--mx) var(--my), var(--accent-ring), transparent 60%);
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor; mask-composite: exclude;
+    }
+    .spot.lit::before, .spot.lit::after { opacity: 1; }
+
+    /* ═══════════════════════════════════════════════════════ NAV */
+    .nav-wrap { position: sticky; top: 14px; z-index: 40; padding-top: 14px; }
+    .nav {
+      height: 60px; border-radius: 20px; padding: 0 10px 0 18px;
+      display: flex; align-items: center; gap: 14px;
+    }
+    .logo { display: flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: -.02em; font-size: 15px; white-space: nowrap; }
+    .logo svg { width: 22px; height: 22px; color: var(--accent); }
+    .logo small { font-family: var(--mono); font-size: 11px; color: var(--text-3); font-weight: 400; letter-spacing: 0; }
+    .nav-spacer { flex: 1; }
+
+    .status-pill {
+      display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px 0 10px;
+      border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border);
+      font-size: 12.5px; font-weight: 500; color: var(--text-2); white-space: nowrap;
+      transition: color .3s, background .3s;
+    }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); position: relative; }
+    .status-dot::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; background: currentColor; opacity: 0; }
+    [data-state="running"] .status-dot { background: var(--accent); color: var(--accent); }
+    [data-state="waiting"] .status-dot { background: var(--warn); color: var(--warn); }
+    [data-state="done"]    .status-dot { background: var(--ok); }
+    [data-state="error"]   .status-dot { background: var(--fail); }
+    [data-state="running"] .status-dot::after, [data-state="waiting"] .status-dot::after { animation: ping 1.6s var(--ease) infinite; }
+    [data-state="running"] { color: var(--text); }
+    @keyframes ping { 0% { transform: scale(.6); opacity: .5; } 100% { transform: scale(2.2); opacity: 0; } }
+
+    .gauge { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-2); white-space: nowrap; }
+    .gauge svg { width: 30px; height: 30px; transform: rotate(-90deg); }
+    .gauge circle { fill: none; stroke-width: 3; }
+    .gauge .track { stroke: var(--surface-3); }
+    .gauge .fill { stroke: var(--accent); stroke-linecap: round; stroke-dasharray: 75.4; stroke-dashoffset: 75.4; transition: stroke-dashoffset .6s var(--ease), stroke .3s; }
+    .gauge.hot .fill { stroke: var(--fail); }
+    .gauge b { display: block; color: var(--text); font-weight: 500; font-family: var(--mono); font-size: 12px; line-height: 1.1; }
+    .gauge span { font-size: 11px; color: var(--text-3); }
+
+    /* ═══════════════════════════════════════════════════════ BUTTONS */
+    .btn {
+      --tx: 0px; --ty: 0px;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      height: 44px; padding: 0 20px; border-radius: 14px;
+      font-weight: 600; font-size: 14.5px; letter-spacing: -.01em; white-space: nowrap;
+      transform: translate3d(var(--tx), var(--ty), 0);
+      transition: transform .5s var(--spring), background .25s, box-shadow .3s var(--ease), opacity .2s, border-color .25s;
+    }
+    .btn svg { width: 16px; height: 16px; flex: none; }
+    .btn:active { transform: translate3d(var(--tx), var(--ty), 0) scale(.97); transition-duration: .12s; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-primary {
+      background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 88%, #fff), var(--accent));
+      color: var(--on-accent);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 1px 2px rgba(0,0,0,.25), 0 10px 30px -8px var(--accent-ring);
+    }
+    .btn-primary:hover:not(:disabled) { box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 1px 2px rgba(0,0,0,.25), 0 16px 40px -8px var(--accent-ring); }
+    .btn-secondary { background: var(--surface-2); border: 1px solid var(--border); color: var(--text); }
+    .btn-secondary:hover:not(:disabled) { background: var(--surface-3); border-color: var(--border-2); }
+    .btn-ghost { height: 36px; padding: 0 12px; border-radius: 11px; color: var(--text-2); font-weight: 500; font-size: 13.5px; }
+    .btn-ghost:hover { background: var(--surface-2); color: var(--text); }
+    .icon-btn { width: 40px; height: 40px; padding: 0; border-radius: 12px; color: var(--text-2); }
+    .icon-btn:hover { background: var(--surface-2); color: var(--text); }
+    .icon-btn svg { width: 18px; height: 18px; transition: transform .4s var(--spring); }
+    .icon-btn:hover svg { transform: scale(1.08); }
+    .btn .spin { animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ═══════════════════════════════════════════════════════ HERO */
+    .hero { padding: clamp(56px, 11vh, 120px) 0 36px; text-align: center; }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 14px;
+      border-radius: 999px; font-size: 12.5px; font-weight: 500; color: var(--text-2);
+      background: var(--surface); border: 1px solid var(--border);
+    }
+    .eyebrow i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+    h1 {
+      margin: 22px auto 0; max-width: 14ch;
+      font-size: clamp(42px, 7.2vw, 88px); line-height: .98; font-weight: 600; letter-spacing: -.045em;
+    }
+    h1 .soft {
+      background: linear-gradient(180deg, var(--text) 10%, color-mix(in srgb, var(--text) 45%, transparent));
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .lede { margin: 20px auto 0; max-width: 52ch; color: var(--text-2); font-size: clamp(15px, 1.6vw, 18px); }
+
+    /* command surface */
+    .command {
+      margin: 40px auto 0; max-width: 760px; border-radius: 22px; padding: 8px;
+      text-align: left;
+    }
+    .command-row { display: flex; align-items: center; gap: 8px; }
+    .field {
+      flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px;
+      height: 52px; padding: 0 14px 0 16px; border-radius: 15px;
+      background: var(--surface); border: 1px solid transparent;
+      transition: border-color .25s, box-shadow .3s var(--ease), background .25s;
+    }
+    .field:focus-within { border-color: var(--accent-ring); background: var(--surface-2); box-shadow: 0 0 0 4px var(--accent-soft); }
+    .field svg { width: 18px; height: 18px; color: var(--text-3); flex: none; }
+    .field input { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent; font-family: var(--mono); font-size: 16px; letter-spacing: -.01em; }
+    .field input::placeholder { color: var(--text-3); }
+    .kbd { font-family: var(--sans); font-size: 11.5px; font-weight: 500; color: var(--text-3); padding: 3px 7px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface); white-space: nowrap; }
+    .command .btn-primary { height: 52px; border-radius: 15px; padding: 0 22px; }
+    .command-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 8px 4px 12px; flex-wrap: wrap; }
+    .command-foot .label { font-size: 12.5px; color: var(--text-3); }
+    .suggest { display: flex; gap: 6px; flex-wrap: wrap; }
+    .chip {
+      height: 28px; padding: 0 11px; border-radius: 999px; font-size: 12px; font-family: var(--mono);
+      color: var(--text-2); background: var(--surface); border: 1px solid var(--border);
+      transition: background .2s, color .2s, transform .4s var(--spring);
+    }
+    .chip:hover { background: var(--surface-3); color: var(--text); transform: translateY(-1px); }
+
+    /* segmented control with gliding capsule */
+    .segmented { position: relative; display: inline-flex; padding: 3px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); }
+    .segmented button { position: relative; z-index: 1; height: 28px; padding: 0 11px; font-size: 12.5px; font-weight: 500; color: var(--text-3); border-radius: 9px; transition: color .25s; white-space: nowrap; }
+    .segmented button[aria-checked="true"] { color: var(--text); }
+    .segmented .thumb { position: absolute; z-index: 0; top: 3px; bottom: 3px; left: 0; border-radius: 9px; background: var(--surface-3); box-shadow: inset 0 1px 0 var(--edge), 0 2px 8px rgba(0,0,0,.18); transition: transform .5s var(--spring), width .5s var(--spring); }
+
+    @media (max-width: 640px) {
+      .command-row { flex-wrap: wrap; }
+      .command .btn-primary { width: 100%; }
+      .field .kbd { display: none; }
     }
 
-    /* Typewriter cursor on rationale */
-    .typing::after {
-      content: '▌';
-      animation: blink 1s step-end infinite;
-      color: #38bdf8;
-    }
-    @keyframes blink { 50% { opacity: 0; } }
+    /* ═══════════════════════════════════════════════════════ PIPELINE */
+    .section { margin-top: 64px; }
+    .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+    .section-head h2 { margin: 0; font-size: clamp(20px, 2.2vw, 24px); font-weight: 600; letter-spacing: -.03em; }
+    .section-head p { margin: 4px 0 0; color: var(--text-3); font-size: 13.5px; }
+    .meta { font-family: var(--mono); font-size: 12px; color: var(--text-3); white-space: nowrap; }
 
-    /* Pulsing dot */
-    .live-dot {
-      width: 8px; height: 8px; border-radius: 50%;
-      background: #4ade80;
-      animation: pulse-dot 1.5s ease-in-out infinite;
+    .pipeline { border-radius: var(--r-xl); padding: 28px; overflow: hidden; }
+    .pipe { position: relative; display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr); gap: 28px; align-items: center; }
+    .pipe-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+    .pipe-svg path { fill: none; stroke: var(--border-2); stroke-width: 1.25; }
+    .pipe-svg path.flow { stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 3 9; opacity: 0; transition: opacity .4s; animation: dash 1.1s linear infinite; }
+    .pipe-svg path.flow.on { opacity: .9; }
+    @keyframes dash { to { stroke-dashoffset: -24; } }
+    .pipe-svg .packet { fill: var(--accent); filter: drop-shadow(0 0 6px var(--accent)); }
+
+    .agents-col { display: grid; gap: 10px; }
+    .node {
+      position: relative; z-index: 1;
+      display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px;
+      background: var(--bg-soft); border: 1px solid var(--border);
+      transition: border-color .4s, box-shadow .5s var(--ease), transform .6s var(--spring), background .4s;
     }
-    @keyframes pulse-dot {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50%       { opacity: 0.4; transform: scale(0.7); }
+    .node-icon {
+      width: 34px; height: 34px; border-radius: 10px; flex: none; display: grid; place-items: center;
+      background: var(--surface-2); border: 1px solid var(--border); color: var(--text-2);
+      transition: color .3s, background .3s;
     }
-    .live-dot.idle { background: #52525b; animation: none; }
-    .live-dot.running { background: #38bdf8; }
-    .live-dot.waiting { background: #fbbf24; }
-    .live-dot.done    { background: #4ade80; animation: none; }
+    .node-icon svg { width: 17px; height: 17px; }
+    .node-body { min-width: 0; flex: 1; }
+    .node-name { font-size: 13.5px; font-weight: 600; letter-spacing: -.01em; }
+    .node-sub { font-size: 11.5px; color: var(--text-3); font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .node-state { width: 8px; height: 8px; border-radius: 50%; background: var(--surface-3); flex: none; transition: background .3s, box-shadow .3s; }
+    .node[data-s="active"] { border-color: var(--accent-ring); box-shadow: 0 0 0 4px var(--accent-soft), 0 10px 30px -12px var(--accent-ring); transform: translateY(-2px); }
+    .node[data-s="active"] .node-icon { color: var(--accent); background: var(--accent-soft); }
+    .node[data-s="active"] .node-state { background: var(--accent); box-shadow: 0 0 10px var(--accent); animation: breathe 1.2s ease-in-out infinite; }
+    .node[data-s="ok"] .node-state   { background: var(--ok); box-shadow: 0 0 10px color-mix(in srgb, var(--ok) 60%, transparent); }
+    .node[data-s="warn"] .node-state { background: var(--warn); box-shadow: 0 0 10px color-mix(in srgb, var(--warn) 60%, transparent); }
+    .node[data-s="fail"] .node-state { background: var(--fail); box-shadow: 0 0 10px color-mix(in srgb, var(--fail) 60%, transparent); }
+    .node[data-s="ok"] .node-icon   { color: var(--ok); }
+    .node[data-s="warn"] .node-icon { color: var(--warn); }
+    .node[data-s="fail"] .node-icon { color: var(--fail); }
+    .node[data-s="warn"] { border-color: color-mix(in srgb, var(--warn) 35%, transparent); }
+    .node[data-s="fail"] { border-color: color-mix(in srgb, var(--fail) 35%, transparent); }
+    @keyframes breathe { 50% { transform: scale(.7); opacity: .6; } }
+    .node .retry-badge { position: absolute; top: -8px; right: 10px; font-size: 10.5px; font-family: var(--mono); padding: 1px 7px; border-radius: 999px; background: var(--warn); color: #1a1100; font-weight: 600; transform: scale(0); transition: transform .4s var(--spring); }
+    .node .retry-badge.show { transform: scale(1); }
+
+    @media (max-width: 900px) {
+      .pipe { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .pipe > .node:first-child, .pipe .agents-col { grid-column: 1 / -1; }
+      .agents-col { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .pipe-svg { display: none; }
+    }
+    @media (max-width: 520px) { .pipeline { padding: 16px; } .agents-col { grid-template-columns: minmax(0, 1fr); } }
+
+    /* ═══════════════════════════════════════════════════════ SIGNALS (metrics) */
+    .signals { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 28px; }
+    .signal { padding: 6px 24px 4px; border-left: 1px solid var(--border); }
+    .signal:first-child { border-left: 0; padding-left: 4px; }
+    .signal-label { font-size: 12.5px; color: var(--text-3); font-weight: 500; display: flex; align-items: center; gap: 7px; }
+    .signal-label i { width: 6px; height: 6px; border-radius: 50%; background: var(--surface-3); transition: background .3s; }
+    .signal[data-tone="ok"] .signal-label i { background: var(--ok); }
+    .signal[data-tone="warn"] .signal-label i { background: var(--warn); }
+    .signal[data-tone="fail"] .signal-label i { background: var(--fail); }
+    .signal-value { margin-top: 6px; font-size: clamp(30px, 3.6vw, 44px); font-weight: 600; letter-spacing: -.045em; line-height: 1; font-variant-numeric: tabular-nums; display: flex; align-items: baseline; gap: 6px; }
+    .signal-value small { font-size: 14px; font-weight: 500; letter-spacing: -.01em; color: var(--text-2); }
+    .signal[data-tone="warn"] .signal-value { color: var(--warn); }
+    .signal[data-tone="fail"] .signal-value { color: var(--fail); }
+    .signal-sub { margin-top: 8px; font-size: 12px; color: var(--text-3); font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .signal-value.pop { animation: pop .7s var(--spring); }
+    @keyframes pop { 0% { transform: translateY(8px); opacity: 0; filter: blur(6px); } 100% { transform: none; opacity: 1; filter: none; } }
+    @media (max-width: 760px) {
+      .signals { grid-template-columns: 1fr 1fr; row-gap: 24px; }
+      .signal:nth-child(3) { border-left: 0; padding-left: 4px; }
+    }
+
+    /* ═══════════════════════════════════════════════════════ WORKSPACE */
+    .workspace { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 20px; align-items: start; }
+    @media (max-width: 1060px) { .workspace { grid-template-columns: 1fr; } }
+    .panel { border-radius: var(--r-lg); overflow: hidden; }
+    .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 22px; border-bottom: 1px solid var(--border); }
+    .panel-head h3 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -.02em; display: flex; align-items: center; gap: 10px; }
+
+    /* trace */
+    .trace { position: relative; max-height: 560px; overflow: auto; overscroll-behavior: contain; }
+    .trace-hover { position: absolute; left: 8px; right: 8px; top: 0; height: 0; border-radius: 12px; background: var(--surface-2); opacity: 0; pointer-events: none; transition: transform .45s var(--ease), height .45s var(--ease), opacity .25s; }
+    .trace-list { position: relative; list-style: none; margin: 0; padding: 8px; }
+    .t-row {
+      display: grid; grid-template-columns: 52px 132px minmax(0, 1fr) auto; gap: 14px; align-items: start;
+      padding: 12px 14px; border-radius: 12px;
+      animation: rowIn .6s var(--ease) both;
+    }
+    @keyframes rowIn { from { opacity: 0; transform: translateY(10px); filter: blur(4px); } }
+    .t-time { font-family: var(--mono); font-size: 11.5px; color: var(--text-3); padding-top: 2px; font-variant-numeric: tabular-nums; }
+    .t-agent { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; }
+    .t-agent i { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--ok); }
+    .t-row[data-s="degraded"] .t-agent i { background: var(--warn); }
+    .t-row[data-s="failed"] .t-agent i { background: var(--fail); }
+    .t-row[data-s="retrying"] .t-agent i { background: var(--info); }
+    .t-row[data-s="human"] .t-agent i { background: var(--accent); }
+    .t-msg { font-size: 13.5px; color: var(--text-2); line-height: 1.45; overflow-wrap: anywhere; }
+    .t-msg .tool { display: inline-block; margin-top: 4px; font-family: var(--mono); font-size: 11px; color: var(--text-3); }
+    .t-msg .tag { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; margin-left: 6px; border-radius: 999px; font-size: 10.5px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; vertical-align: 1px; }
+    .tag-degraded { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
+    .tag-failed   { background: color-mix(in srgb, var(--fail) 16%, transparent); color: var(--fail); }
+    .tag-retrying { background: color-mix(in srgb, var(--info) 16%, transparent); color: var(--info); }
+    .t-lat { font-family: var(--mono); font-size: 12px; color: var(--text-3); text-align: right; white-space: nowrap; padding-top: 1px; font-variant-numeric: tabular-nums; }
+    .t-lat.slow { color: var(--warn); }
+    .t-lat .r { display: block; font-size: 10.5px; color: var(--warn); }
+    @media (max-width: 640px) {
+      .t-row { grid-template-columns: 1fr auto; gap: 4px 12px; }
+      .t-time { display: none; }
+      .t-msg { grid-column: 1 / -1; }
+      .t-lat { grid-row: 1; grid-column: 2; }
+    }
+
+    .empty { display: grid; place-items: center; text-align: center; padding: 72px 24px; }
+    .empty-mark { width: 64px; height: 64px; border-radius: 20px; display: grid; place-items: center; background: var(--surface); border: 1px solid var(--border); color: var(--text-3); margin-bottom: 18px; position: relative; }
+    .empty-mark::after { content: ""; position: absolute; inset: -10px; border-radius: 26px; border: 1px dashed var(--border); animation: spin 30s linear infinite; }
+    .empty-mark svg { width: 26px; height: 26px; }
+    .empty h4 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -.02em; }
+    .empty p { margin: 6px 0 0; font-size: 13.5px; color: var(--text-3); max-width: 36ch; }
+
+    /* skeleton */
+    .skel { height: 12px; border-radius: 6px; background: linear-gradient(90deg, var(--surface) 20%, var(--surface-3) 50%, var(--surface) 80%); background-size: 200% 100%; animation: shimmer 1.6s linear infinite; }
+    @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+    /* blackboard */
+    .bb { padding: 16px 18px 20px; max-height: 560px; overflow: auto; }
+    .bb-key { border-radius: 14px; padding: 12px 14px; margin-bottom: 8px; background: var(--surface); border: 1px solid transparent; transition: border-color .8s var(--ease), background .8s var(--ease); }
+    .bb-key.changed { border-color: var(--accent-ring); background: var(--accent-soft); transition-duration: .05s; }
+    .bb-key-name { display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; font-weight: 600; letter-spacing: -.01em; margin-bottom: 6px; }
+    .bb-key-name span { font-family: var(--mono); font-weight: 400; font-size: 11px; color: var(--text-3); }
+    .bb pre { margin: 0; font-family: var(--mono); font-size: 12px; line-height: 1.65; white-space: pre-wrap; word-break: break-word; color: var(--text-2); }
+    .j-k { color: var(--text); } .j-s { color: var(--accent-2); } .j-n { color: var(--info); } .j-b { color: var(--warn); } .j-z { color: var(--text-3); }
+    .bb-empty { padding: 48px 12px; text-align: center; color: var(--text-3); font-size: 13px; }
+    .version { font-family: var(--mono); font-size: 11.5px; color: var(--text-3); padding: 3px 9px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); transition: color .3s, border-color .3s; }
+    .version.bump { color: var(--accent); border-color: var(--accent-ring); }
+
+    /* ═══════════════════════════════════════════════════════ VERDICT */
+    .verdict {
+      border-radius: var(--r-xl); padding: clamp(24px, 4vw, 44px);
+      display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 40px;
+      transform-style: preserve-3d; transition: transform .8s var(--ease);
+      --tone: var(--ok);
+    }
+    .verdict[data-tone="warn"] { --tone: var(--warn); }
+    .verdict[data-tone="fail"] { --tone: var(--fail); }
+    .verdict[data-tone="unknown"] { --tone: var(--text-3); }
+    .verdict-glow { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: -1; background: radial-gradient(600px circle at 0% 0%, color-mix(in srgb, var(--tone) 18%, transparent), transparent 60%); }
+    .verdict-eyebrow { font-size: 12.5px; color: var(--text-3); font-weight: 500; }
+    .verdict-word { margin: 10px 0 0; font-size: clamp(44px, 7vw, 80px); font-weight: 600; letter-spacing: -.05em; line-height: .95; color: var(--tone); }
+    .verdict-summary { margin: 18px 0 0; color: var(--text-2); font-size: 15px; max-width: 48ch; }
+    .verdict-stats { display: flex; gap: 32px; margin-top: 28px; flex-wrap: wrap; }
+    .stat b { display: block; font-size: 26px; font-weight: 600; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+    .stat span { font-size: 12px; color: var(--text-3); }
+    @media (max-width: 860px) { .verdict { grid-template-columns: 1fr; gap: 28px; } }
+
+    /* RCA */
+    .rca { border-left: 1px solid var(--border); padding-left: 36px; min-width: 0; }
+    @media (max-width: 860px) { .rca { border-left: 0; padding-left: 0; border-top: 1px solid var(--border); padding-top: 28px; } }
+    .rca-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .rca-title { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-3); font-weight: 500; }
+    .rca-title svg { width: 15px; height: 15px; color: var(--accent); }
+    .sev { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 999px; font-size: 11.5px; font-weight: 600; font-family: var(--mono); background: var(--surface-2); color: var(--text-2); }
+    .sev[data-sev="P1"] { background: color-mix(in srgb, var(--fail) 18%, transparent); color: var(--fail); }
+    .sev[data-sev="P2"] { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+    .sev[data-sev="P3"] { background: color-mix(in srgb, var(--info) 18%, transparent); color: var(--info); }
+    .sev[data-sev="P4"] { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
+    .rca h4 { margin: 14px 0 0; font-size: 20px; font-weight: 600; letter-spacing: -.03em; line-height: 1.25; }
+    .rca p { margin: 10px 0 0; color: var(--text-2); font-size: 14px; }
+    .rca .rc { margin-top: 16px; padding: 12px 14px; border-radius: 14px; background: var(--surface); font-size: 13.5px; color: var(--text); }
+    .rca .rc span { display: block; font-size: 11.5px; color: var(--text-3); margin-bottom: 3px; }
+    .actions { list-style: none; margin: 18px 0 0; padding: 0; display: grid; gap: 10px; counter-reset: a; }
+    .actions li { counter-increment: a; display: grid; grid-template-columns: 22px 1fr; gap: 10px; font-size: 13.5px; color: var(--text-2); animation: rowIn .6s var(--ease) both; }
+    .actions li::before { content: counter(a); width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; font-size: 11px; font-weight: 600; font-family: var(--mono); background: var(--accent-soft); color: var(--accent); }
+    .rca-foot { margin-top: 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    details.payload { margin-top: 14px; }
+    details.payload summary { cursor: pointer; list-style: none; font-size: 12.5px; color: var(--text-3); display: inline-flex; align-items: center; gap: 6px; }
+    details.payload summary::-webkit-details-marker { display: none; }
+    details.payload summary svg { width: 12px; height: 12px; transition: transform .35s var(--spring); }
+    details.payload[open] summary svg { transform: rotate(90deg); }
+    details.payload pre { margin: 10px 0 0; max-height: 240px; overflow: auto; padding: 14px; border-radius: 14px; background: var(--surface); font-family: var(--mono); font-size: 11.5px; line-height: 1.6; color: var(--text-2); white-space: pre-wrap; word-break: break-all; }
+
+    /* ═══════════════════════════════════════════════════════ DRAWER */
+    .scrim { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,.35); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); opacity: 0; pointer-events: none; transition: opacity .45s var(--ease); }
+    .scrim.open { opacity: 1; pointer-events: auto; }
+    .drawer {
+      position: fixed; z-index: 61; top: 12px; right: 12px; bottom: 12px; width: min(440px, calc(100vw - 24px));
+      border-radius: 28px; padding: 24px; display: flex; flex-direction: column; gap: 18px; overflow: auto;
+      background: color-mix(in srgb, var(--bg) 72%, transparent);
+      transform: translateX(calc(100% + 40px)) scale(.98); opacity: 0;
+      transition: transform .7s var(--spring), opacity .4s var(--ease);
+    }
+    .drawer.open { transform: none; opacity: 1; }
+    .drawer-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .drawer h3 { margin: 0; font-size: 22px; letter-spacing: -.035em; font-weight: 600; }
+    .drawer-head p { margin: 4px 0 0; font-size: 13.5px; color: var(--text-3); }
+    .label-sm { display: block; font-size: 12.5px; font-weight: 500; color: var(--text-2); margin-bottom: 8px; }
+    textarea.input {
+      width: 100%; min-height: 128px; resize: vertical; padding: 14px 16px; border-radius: 15px;
+      background: var(--surface); border: 1px solid var(--border); outline: 0;
+      font-family: var(--mono); font-size: 13.5px; line-height: 1.6;
+      transition: border-color .25s, box-shadow .3s var(--ease), background .25s;
+    }
+    textarea.input:focus { border-color: var(--accent-ring); box-shadow: 0 0 0 4px var(--accent-soft); background: var(--surface-2); }
+    .stepper { display: inline-flex; align-items: center; height: 44px; border-radius: 13px; background: var(--surface); border: 1px solid var(--border); }
+    .stepper button { width: 40px; height: 100%; color: var(--text-2); font-size: 18px; border-radius: 12px; }
+    .stepper button:hover { color: var(--text); background: var(--surface-2); }
+    .stepper output { width: 36px; text-align: center; font-family: var(--mono); font-size: 14px; }
+    .batch-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+    .batch-metrics { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 12px; padding-top: 18px; border-top: 1px solid var(--border); }
+    .batch-metrics .stat b { font-size: 30px; }
+    .batch-metrics .stat:first-child b { color: var(--accent); }
+    .batch-bar { height: 6px; border-radius: 6px; background: var(--surface-3); overflow: hidden; margin-top: 8px; }
+    .batch-bar i { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--accent); transition: width 1s var(--ease); }
+    .batch-rows { list-style: none; margin: 0; padding: 0; font-size: 12.5px; }
+    .batch-rows li { display: grid; grid-template-columns: 1fr 44px 70px 56px; gap: 8px; padding: 9px 4px; border-bottom: 1px solid var(--border); font-family: var(--mono); color: var(--text-2); animation: rowIn .5s var(--ease) both; }
+    .batch-rows li:last-child { border-bottom: 0; }
+    .batch-rows .d { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .risk-low { color: var(--ok); } .risk-medium { color: var(--warn); } .risk-high, .risk-error { color: var(--fail); } .risk-unknown { color: var(--text-3); }
+
+    /* ═══════════════════════════════════════════════════════ MODAL */
+    .modal-wrap { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 16px; pointer-events: none; }
+    .modal {
+      width: min(460px, 100%); border-radius: 30px; padding: 32px; text-align: center;
+      background: color-mix(in srgb, var(--bg) 70%, transparent);
+      backdrop-filter: blur(44px) saturate(160%); -webkit-backdrop-filter: blur(44px) saturate(160%);
+      opacity: 0; transform: translateY(16px) scale(.96); filter: blur(8px);
+      transition: opacity .4s var(--ease), transform .6s var(--spring), filter .4s var(--ease);
+    }
+    .modal-wrap.open { pointer-events: auto; }
+    .modal-wrap.open .modal { opacity: 1; transform: none; filter: none; }
+    .modal-icon { width: 60px; height: 60px; margin: 0 auto 18px; border-radius: 20px; display: grid; place-items: center; color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); position: relative; }
+    .modal-icon::after { content: ""; position: absolute; inset: 0; border-radius: inherit; border: 1px solid var(--warn); opacity: .5; animation: ring 2s var(--ease) infinite; }
+    @keyframes ring { to { transform: scale(1.35); opacity: 0; } }
+    .modal-icon svg { width: 26px; height: 26px; }
+    .modal h3 { margin: 0; font-size: 24px; letter-spacing: -.035em; font-weight: 600; }
+    .modal .risk { margin-top: 6px; font-size: 13px; color: var(--warn); font-weight: 500; }
+    .modal .finding { margin: 20px 0 0; padding: 14px 16px; border-radius: 16px; background: var(--surface); text-align: left; font-size: 13.5px; color: var(--text); line-height: 1.5; }
+    .modal .finding span { display: block; font-size: 11.5px; color: var(--text-3); margin-bottom: 4px; }
+    .modal .hint { margin: 16px 0 0; font-size: 13px; color: var(--text-3); }
+    .modal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 24px; }
+    .modal-actions .btn { width: 100%; height: 48px; }
+
+    /* ═══════════════════════════════════════════════════════ TOAST */
+    .toasts { position: fixed; z-index: 80; bottom: 20px; left: 50%; transform: translateX(-50%); display: grid; gap: 10px; width: min(400px, calc(100vw - 32px)); }
+    .toast {
+      display: grid; grid-template-columns: 20px 1fr; gap: 12px; padding: 14px 16px; border-radius: 18px;
+      animation: toastIn .6s var(--spring) both;
+    }
+    .toast.out { animation: toastOut .35s var(--ease) both; }
+    .toast svg { width: 18px; height: 18px; margin-top: 1px; color: var(--accent); }
+    .toast[data-kind="error"] svg { color: var(--fail); }
+    .toast b { display: block; font-size: 13.5px; font-weight: 600; letter-spacing: -.01em; }
+    .toast span { font-size: 12.5px; color: var(--text-2); }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(16px) scale(.95); } }
+    @keyframes toastOut { to { opacity: 0; transform: translateY(8px) scale(.97); } }
+
+    /* ═══════════════════════════════════════════════════════ REVEAL */
+    .reveal { opacity: 0; transform: translateY(14px); filter: blur(6px); transition: opacity .8s var(--ease), transform .8s var(--ease), filter .8s var(--ease); }
+    .reveal.in { opacity: 1; transform: none; filter: none; }
+    [hidden] { display: none !important; }
+
+    .footer { margin-top: 72px; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-3); }
+
+    @media (max-width: 820px) { .gauge { display: none; } }
+    @media (max-width: 520px) { .logo small, .status-pill .lbl-long { display: none; } .nav { padding: 0 6px 0 14px; } }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+      .reveal { opacity: 1; transform: none; filter: none; }
+      .orb-cursor, .cursor, .cursor-dot { display: none; }
+    }
   </style>
 </head>
 
-<body class="font-sans text-zinc-200 min-h-screen flex flex-col">
+<body>
+  <!-- Atmosphere -->
+  <div class="atmo" aria-hidden="true">
+    <div class="gridlines"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+    <div class="orb orb-cursor" id="orbCursor"></div>
+    <div class="grain"></div>
+  </div>
+  <div class="cursor" id="cursor" aria-hidden="true"></div>
+  <div class="cursor-dot" id="cursorDot" aria-hidden="true"></div>
 
-  <!-- ══════════════════════════════════════════════════════════ TOP BAR -->
-  <header class="border-b border-white/10 bg-zinc-950/80 sticky top-0 z-30 backdrop-blur-md">
-    <div class="max-w-screen-2xl mx-auto px-6 py-3 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+  <div class="shell">
 
-      <!-- Logo -->
-      <div class="flex items-center gap-2 mr-4 shrink-0">
-        <svg class="w-7 h-7 text-cyan-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-        </svg>
-        <span class="font-semibold text-white tracking-tight text-sm">Domain Guardian</span>
-        <span class="text-zinc-600 text-xs font-mono hidden sm:inline">v1.0</span>
-      </div>
-
-      <!-- Domain input + chaos, grouped as one pill; Run button as separate primary action -->
-      <div class="flex-1 flex items-center gap-2 min-w-0 w-full">
-        <div class="flex-1 flex items-center min-w-0 rounded-md border border-white/10 bg-zinc-900 divide-x divide-white/10 focus-within:ring-2 focus-within:ring-cyan-500/50 transition">
-          <input
-            id="domainInput"
-            type="text"
-            placeholder="example.com"
-            value="example.com"
-            class="flex-1 min-w-0 font-mono text-sm bg-transparent px-3 py-1.5 text-zinc-100 placeholder-zinc-500 focus:outline-none w-32"
-            autocomplete="off"
-          />
-
-          <!-- Chaos toggle -->
-          <div class="flex items-center gap-1.5 px-2.5 shrink-0">
-            <span class="text-xs text-zinc-500 whitespace-nowrap hidden md:block">Chaos</span>
-            <select id="chaosSelect" class="font-mono text-xs bg-transparent py-1.5 text-zinc-200 focus:outline-none cursor-pointer transition">
-              <option value="none">🟢 None</option>
-              <option value="dns_timeout">🌐 DNS Timeout</option>
-              <option value="cert_expired">🔐 Cert Expired</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Run button -->
-        <button
-          id="runBtn"
-          onclick="startAudit()"
-          class="flex items-center gap-2 px-4 py-1.5 rounded-md bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white text-sm font-semibold transition-all duration-150 shadow-lg shadow-cyan-500/20 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
-        >
-          <svg id="runIcon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 010 1.972l-11.54 6.347a1.125 1.125 0 01-1.667-.986V5.653z" />
+    <!-- ══════════════════════════════════════════════ NAV -->
+    <div class="nav-wrap">
+      <nav class="nav glass spot" aria-label="Primary">
+        <div class="logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 3l7.5 3v5.4c0 4.4-3.1 8.4-7.5 9.6-4.4-1.2-7.5-5.2-7.5-9.6V6L12 3z"/><path d="M9 12l2.2 2.2L15.5 10"/>
           </svg>
-          <span id="runBtnText">Run Audit</span>
+          Domain Guardian <small>v2</small>
+        </div>
+
+        <div class="nav-spacer"></div>
+
+        <div class="status-pill" id="statusPill" data-state="idle" role="status" aria-live="polite">
+          <span class="status-dot"></span><span id="statusText">Idle</span>
+        </div>
+
+        <div class="gauge" id="stepsGauge" title="Step budget">
+          <svg viewBox="0 0 30 30" aria-hidden="true"><circle class="track" cx="15" cy="15" r="12"/><circle class="fill" cx="15" cy="15" r="12"/></svg>
+          <div><b id="stepsLabel">0/12</b><span>steps</span></div>
+        </div>
+        <div class="gauge" id="timeGauge" title="Wall-clock budget">
+          <svg viewBox="0 0 30 30" aria-hidden="true"><circle class="track" cx="15" cy="15" r="12"/><circle class="fill" cx="15" cy="15" r="12"/></svg>
+          <div><b id="timeLabel">0.0s</b><span>of 25s</span></div>
+        </div>
+
+        <button class="btn btn-ghost" id="openBatch" data-magnetic aria-haspopup="dialog">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" style="width:16px;height:16px"><path d="M4 6h16M4 12h10M4 18h6"/></svg>
+          Batch
         </button>
-      </div>
-
-      <!-- Budget gauges -->
-      <div class="flex items-center gap-4 ml-auto shrink-0">
-        <div class="flex items-center gap-1.5">
-          <div id="liveDot" class="live-dot idle"></div>
-          <span id="liveLabel" class="text-xs text-zinc-500">Idle</span>
-        </div>
-
-        <div class="hidden sm:block">
-          <div class="flex items-center gap-1 mb-0.5">
-            <span class="text-xs text-zinc-500 font-mono w-20">Steps</span>
-            <span id="stepsLabel" class="text-xs text-cyan-400 font-mono">0 / 12</span>
-          </div>
-          <div class="w-28 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-            <div id="stepsBar" class="budget-fill h-full bg-cyan-500 rounded-full" style="width:0%"></div>
-          </div>
-        </div>
-
-        <div class="hidden sm:block">
-          <div class="flex items-center gap-1 mb-0.5">
-            <span class="text-xs text-zinc-500 font-mono w-20">Elapsed</span>
-            <span id="timeLabel" class="text-xs text-violet-400 font-mono">0.0s / 25s</span>
-          </div>
-          <div class="w-28 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-            <div id="timeBar" class="budget-fill h-full bg-violet-500 rounded-full" style="width:0%"></div>
-          </div>
-        </div>
-      </div>
+        <button class="btn icon-btn" id="themeBtn" aria-label="Toggle colour theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 3a9 9 0 109 9 7 7 0 01-9-9z"/></svg>
+        </button>
+      </nav>
     </div>
-  </header>
 
-  <!-- ══════════════════════════════════════════════════════ MAIN CONTENT -->
-  <main class="flex-1 max-w-screen-2xl mx-auto w-full px-4 sm:px-6 py-5 grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-5">
+    <!-- ══════════════════════════════════════════════ HERO -->
+    <header class="hero">
+      <span class="eyebrow reveal"><i></i>Six agents · one verdict</span>
+      <h1 class="reveal">Know your domain is <span class="soft">actually healthy.</span></h1>
+      <p class="lede reveal">DNS, uptime, TLS and registration — checked live by specialist agents, cross‑examined by a critic, and signed off by you.</p>
 
-    <!-- ── LEFT: Live Trace ─────────────────────────────────────────────── -->
-    <section class="flex flex-col gap-4 min-w-0">
+      <form class="command glass spot reveal" id="auditForm" autocomplete="off">
+        <div class="command-row">
+          <label class="field">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg>
+            <span class="sr-only">Domain to audit</span>
+            <input id="domainInput" type="text" inputmode="url" spellcheck="false" placeholder="example.com" value="example.com" />
+            <span class="kbd" aria-hidden="true">⌘ K</span>
+          </label>
+          <button type="submit" class="btn btn-primary" id="runBtn" data-magnetic>
+            <svg id="runIcon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 5.5v13a1 1 0 001.5.86l11-6.5a1 1 0 000-1.72l-11-6.5A1 1 0 007 5.5z"/></svg>
+            <span id="runText">Run audit</span>
+          </button>
+        </div>
+        <div class="command-foot">
+          <div class="suggest" aria-label="Try a domain">
+            <button type="button" class="chip" data-domain="github.com">github.com</button>
+            <button type="button" class="chip" data-domain="expired.badssl.com">expired.badssl.com</button>
+            <button type="button" class="chip" data-domain="this-domain-should-not-exist-12345.com">nonexistent.com</button>
+          </div>
+          <div class="segmented" id="chaos" role="radiogroup" aria-label="Chaos mode">
+            <span class="thumb" aria-hidden="true"></span>
+            <button type="button" role="radio" aria-checked="true" data-value="none">No chaos</button>
+            <button type="button" role="radio" aria-checked="false" data-value="dns_timeout">DNS timeout</button>
+            <button type="button" role="radio" aria-checked="false" data-value="cert_expired">Cert expired</button>
+          </div>
+        </div>
+      </form>
+    </header>
 
-      <!-- Section header -->
-      <div class="flex items-center gap-2">
-        <span class="text-xs font-semibold uppercase tracking-widest text-zinc-500">Live Trace</span>
-        <div class="flex-1 h-px bg-zinc-800"></div>
-        <span id="traceCount" class="text-xs text-zinc-600 font-mono">0 events</span>
+    <!-- ══════════════════════════════════════════════ PIPELINE + SIGNALS -->
+    <section class="section reveal" aria-labelledby="pipeTitle">
+      <div class="section-head">
+        <div>
+          <h2 id="pipeTitle">Agent pipeline</h2>
+          <p>The planner delegates, specialists call real services, the critic can reject and force a re‑run.</p>
+        </div>
+        <span class="meta" id="domainMeta">—</span>
       </div>
 
-      <!-- Trace table -->
-      <div class="rounded-xl border border-white/10 bg-zinc-900 shadow-lg shadow-black/50 overflow-hidden">
-        <!-- Table header -->
-        <div class="grid grid-cols-[90px_100px_1fr_80px_60px] gap-3 px-4 py-2 bg-black/30 border-b border-white/10 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-          <span>Agent</span>
-          <span>Status</span>
-          <span>Rationale</span>
-          <span class="text-right">Latency</span>
-          <span class="text-right">Retries</span>
-        </div>
+      <div class="pipeline glass spot">
+        <div class="pipe" id="pipe">
+          <svg class="pipe-svg" id="pipeSvg" aria-hidden="true"></svg>
 
-        <!-- Trace rows container -->
-        <div id="traceBody" class="divide-y divide-white/5 min-h-[200px]">
-          <!-- Empty state -->
-          <div id="traceEmpty" class="flex flex-col items-center justify-center py-16 text-zinc-600">
-            <svg class="w-10 h-10 mb-3 opacity-30" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-            </svg>
-            <p class="text-sm font-medium">No audit running</p>
-            <p class="text-xs mt-1">Enter a domain and click <span class="text-cyan-500">Run Audit</span></p>
+          <div class="node" data-agent="planner" data-s="idle">
+            <div class="node-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M8 7.5l3 8M16 7.5l-3 8"/></svg></div>
+            <div class="node-body"><div class="node-name">Planner</div><div class="node-sub">builds the plan</div></div>
+            <span class="node-state"></span>
+          </div>
+
+          <div class="agents-col">
+            <div class="node" data-agent="dns_agent" data-s="idle">
+              <span class="retry-badge">retry</span>
+              <div class="node-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg></div>
+              <div class="node-body"><div class="node-name">DNS</div><div class="node-sub">cloudflare_doh</div></div>
+              <span class="node-state"></span>
+            </div>
+            <div class="node" data-agent="rdap_agent" data-s="idle">
+              <span class="retry-badge">retry</span>
+              <div class="node-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></div>
+              <div class="node-body"><div class="node-name">Registration</div><div class="node-sub">rdap.org</div></div>
+              <span class="node-state"></span>
+            </div>
+            <div class="node" data-agent="uptime_agent" data-s="idle">
+              <span class="retry-badge">retry</span>
+              <div class="node-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg></div>
+              <div class="node-body"><div class="node-name">Uptime</div><div class="node-sub">http_get</div></div>
+              <span class="node-state"></span>
+            </div>
+            <div class="node" data-agent="cert_agent" data-s="idle">
+              <span class="retry-badge">retry</span>
+              <div class="node-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="5" y="10" width="14" height="10" rx="3"/><path d="M8 10V7a4 4 0 018 0v3"/></svg></div>
+              <div class="node-body"><div class="node-name">TLS</div><div class="node-sub">tls_handshake</div></div>
+              <span class="node-state"></span>
+            </div>
+          </div>
+
+          <div class="node" data-agent="critic" data-s="idle">
+            <div class="node-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5M8.5 11l2 2 3.5-3.5"/></svg></div>
+            <div class="node-body"><div class="node-name">Critic</div><div class="node-sub">cross‑checks</div></div>
+            <span class="node-state"></span>
+          </div>
+
+          <div class="node" data-agent="approval_gate" data-s="idle">
+            <div class="node-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.2-3.5 3.8-5 7-5s5.8 1.5 7 5"/></svg></div>
+            <div class="node-body"><div class="node-name">You</div><div class="node-sub">approval gate</div></div>
+            <span class="node-state"></span>
           </div>
         </div>
       </div>
 
-      <!-- ── Verdict card ─────────────────────────────────────────────── -->
-      <div id="verdictCard" class="hidden rounded-xl border bg-zinc-900/80 shadow-lg shadow-black/50 p-5 animate-fade-in transition-all">
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <p class="text-xs uppercase tracking-widest text-zinc-500 mb-1">Final Verdict</p>
-            <div class="flex items-center gap-3">
-              <span id="verdictBadge" class="text-2xl font-bold font-mono uppercase tracking-wide"></span>
-              <span id="verdictRisk" class="text-xs px-2 py-0.5 rounded-full border font-semibold uppercase tracking-wider"></span>
-            </div>
-            <p id="verdictSummary" class="text-sm text-zinc-400 mt-2 font-mono leading-relaxed"></p>
-          </div>
-          <div class="text-right text-xs text-zinc-600 font-mono shrink-0">
-            <div id="verdictSteps"></div>
-            <div id="verdictTime"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ── RCA thinking placeholder (shown while Gemini is working) ── -->
-      <div id="rcaThinking" class="hidden rounded-xl border border-white/10 bg-zinc-900/60 shadow-lg shadow-black/50 p-5 animate-fade-in">
-        <div class="flex items-center gap-3 mb-3">
-          <div class="w-5 h-5 rounded-full border-2 border-violet-400/40 border-t-violet-400 animate-spin"></div>
-          <span class="text-xs font-semibold uppercase tracking-widest text-violet-400">Synthesizing Incident Report</span>
-          <span class="text-xs text-zinc-600 font-mono">Gemini is analyzing…</span>
-        </div>
-        <div class="space-y-2">
-          <div class="rca-thinking h-3 rounded w-3/4"></div>
-          <div class="rca-thinking h-3 rounded w-full"></div>
-          <div class="rca-thinking h-3 rounded w-5/6"></div>
-          <div class="rca-thinking h-3 rounded w-2/3"></div>
-        </div>
-      </div>
-
-      <!-- ── RCA Incident Report card ──────────────────────────────────── -->
-      <div id="rcaCard" class="hidden rounded-xl border border-white/10 bg-zinc-900/80 shadow-lg shadow-black/50 p-5 animate-fade-in rca-card">
-        <!-- Card header -->
-        <div class="flex items-start justify-between gap-3 mb-4">
-          <div class="flex items-center gap-2">
-            <div class="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/30 flex items-center justify-center">
-              <svg class="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-              </svg>
-            </div>
-            <div>
-              <p class="text-xs uppercase tracking-widest text-violet-400 font-semibold">AI Incident Report</p>
-              <p class="text-xs text-zinc-600 font-mono" id="rcaMeta"></p>
-            </div>
-          </div>
-          <div class="flex items-center gap-2 shrink-0">
-            <span id="rcaSeverityBadge" class="text-xs px-2.5 py-1 rounded-full font-bold uppercase tracking-wider border"></span>
-            <button id="copySlackBtn" onclick="copySlackPayload()"
-              class="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-white/10 bg-zinc-800/80 hover:bg-zinc-700 text-xs text-zinc-400 hover:text-zinc-200 transition active:scale-95 font-medium">
-              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 7.5V6.108c0-1.135.845-2.098 1.976-2.192.373-.03.748-.057 1.123-.08M15.75 18H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08M15.75 18.75v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5A3.375 3.375 0 006.375 7.5H5.25m11.9 3.083A2.25 2.25 0 0115 12.75" />
-              </svg>
-              <span id="copyBtnLabel">Copy Slack</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Summary bar -->
-        <div class="bg-zinc-900/50 border border-white/5 rounded-lg px-4 py-2.5 mb-4">
-          <p id="rcaSummary" class="text-sm font-semibold text-zinc-100 leading-snug"></p>
-        </div>
-
-        <!-- Grid: narrative + root cause -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-          <div class="bg-zinc-900/50 border border-white/5 rounded-lg p-5">
-            <p class="text-xs uppercase tracking-wider text-zinc-500 font-semibold mb-2">📋 Narrative</p>
-            <p id="rcaNarrative" class="text-sm text-zinc-300 leading-relaxed font-mono"></p>
-          </div>
-          <div class="bg-zinc-900/50 border border-white/5 rounded-lg p-5">
-            <p class="text-xs uppercase tracking-wider text-zinc-500 font-semibold mb-2">🔍 Root Cause</p>
-            <p id="rcaRootCause" class="text-sm text-zinc-300 leading-relaxed font-mono"></p>
-            <div class="mt-3 flex items-center gap-2">
-              <span class="text-xs text-zinc-600 uppercase tracking-wider">Confidence:</span>
-              <span id="rcaConfidence" class="text-xs font-semibold px-2 py-0.5 rounded-full border"></span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Recommended actions -->
-        <div class="bg-zinc-900/50 border border-white/5 rounded-lg p-5 mb-4">
-          <p class="text-xs uppercase tracking-wider text-zinc-500 font-semibold mb-2">✅ Recommended Actions</p>
-          <ol id="rcaActions" class="space-y-1.5 text-sm text-zinc-300 list-none"></ol>
-        </div>
-
-        <!-- Slack preview (collapsible) -->
-        <details class="group">
-          <summary class="cursor-pointer flex items-center gap-2 text-xs text-zinc-500 hover:text-zinc-400 transition select-none">
-            <svg class="w-3 h-3 transition-transform group-open:rotate-90" fill="currentColor" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
-            Slack Block Kit payload
-          </summary>
-          <div class="mt-2 rounded-lg bg-black/40 border border-white/10 p-3 overflow-hidden">
-            <pre id="rcaSlackJson" class="font-mono text-xs text-zinc-400 whitespace-pre-wrap break-all overflow-auto max-h-48"></pre>
-          </div>
-        </details>
+      <div class="signals" id="signals">
+        <div class="signal" data-key="dns"><div class="signal-label"><i></i>DNS</div><div class="signal-value">—</div><div class="signal-sub">awaiting resolver</div></div>
+        <div class="signal" data-key="uptime"><div class="signal-label"><i></i>HTTP</div><div class="signal-value">—</div><div class="signal-sub">awaiting request</div></div>
+        <div class="signal" data-key="cert"><div class="signal-label"><i></i>Certificate</div><div class="signal-value">—</div><div class="signal-sub">awaiting handshake</div></div>
+        <div class="signal" data-key="rdap"><div class="signal-label"><i></i>Registration</div><div class="signal-value">—</div><div class="signal-sub">awaiting RDAP</div></div>
       </div>
     </section>
 
-    <!-- ── RIGHT: Blackboard sidebar ────────────────────────────────────── -->
-    <aside class="flex flex-col gap-4">
-
-      <!-- Blackboard header -->
-      <div class="flex items-center gap-2">
-        <span class="text-xs font-semibold uppercase tracking-widest text-zinc-500">Blackboard</span>
-        <div class="flex-1 h-px bg-zinc-800"></div>
-        <span id="bbVersion" class="text-xs text-zinc-600 font-mono">v0</span>
-      </div>
-
-      <!-- Blackboard JSON -->
-      <div class="rounded-xl border border-white/10 bg-black/40 shadow-lg shadow-black/50 p-4 flex-1 overflow-hidden">
-        <pre id="bbPre" class="font-mono text-xs text-zinc-400 leading-relaxed overflow-auto max-h-80 whitespace-pre-wrap break-all"><code id="bbCode" class="text-zinc-600 italic">// awaiting first event…</code></pre>
-      </div>
-
-      <!-- Batch runner -->
-      <div class="rounded-xl border border-white/10 bg-zinc-900 shadow-lg shadow-black/50 p-4">
-        <div class="flex items-center gap-2 mb-3">
-          <span class="text-xs font-semibold uppercase tracking-widest text-zinc-500">Batch Harness</span>
-          <div class="flex-1 h-px bg-zinc-800"></div>
+    <!-- ══════════════════════════════════════════════ VERDICT + RCA -->
+    <section class="section" id="verdictSection" hidden aria-live="polite">
+      <div class="verdict glass spot" id="verdict" data-tilt>
+        <div class="verdict-glow"></div>
+        <div>
+          <div class="verdict-eyebrow">Final verdict</div>
+          <div class="verdict-word" id="verdictWord">Healthy</div>
+          <p class="verdict-summary" id="verdictSummary"></p>
+          <div class="verdict-stats">
+            <div class="stat"><b id="vRisk">low</b><span>risk</span></div>
+            <div class="stat"><b id="vSteps">0</b><span>steps used</span></div>
+            <div class="stat"><b id="vTime">0s</b><span>wall clock</span></div>
+          </div>
         </div>
-        <textarea
-          id="batchDomains"
-          rows="3"
-          placeholder="example.com&#10;google.com&#10;github.com"
-          class="w-full font-mono text-xs bg-black/30 border border-white/10 rounded-md px-3 py-2 text-zinc-200 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none"
-        ></textarea>
-        <div class="flex items-center gap-2 mt-2">
-          <label class="text-xs text-zinc-500">Repeats:</label>
-          <input id="batchRepeats" type="number" value="3" min="1" max="20"
-            class="w-14 font-mono text-xs bg-black/30 border border-white/10 rounded-md px-2 py-1 text-zinc-200 focus:outline-none focus:ring-2 focus:ring-violet-500/50" />
-          <button onclick="runBatch()"
-            class="ml-auto px-3 py-1 rounded-md bg-violet-600 hover:bg-violet-500 text-xs font-semibold text-white transition active:scale-95 shadow-lg shadow-violet-500/20">
-            Run Batch
-          </button>
-        </div>
-        <div id="batchResult" class="hidden mt-3 rounded-md bg-black/40 border border-white/10 p-3">
-          <pre id="batchPre" class="font-mono text-xs text-zinc-300 whitespace-pre-wrap"></pre>
-        </div>
-      </div>
-    </aside>
-  </main>
 
-  <!-- ══════════════════════════════════════════ APPROVAL GATE MODAL -->
-  <div id="approvalModal" class="hidden fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-    <div class="bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl shadow-black/50 p-8 max-w-md w-full animate-fade-in">
+        <div class="rca" id="rca">
+          <div class="rca-top">
+            <div class="rca-title">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.9 5.6L19.5 9.5l-5.6 1.9L12 17l-1.9-5.6L4.5 9.5l5.6-1.9L12 2zM19 15l.9 2.6 2.6.9-2.6.9L19 22l-.9-2.6-2.6-.9 2.6-.9L19 15z"/></svg>
+              Incident report
+            </div>
+            <span class="sev" id="rcaSev">…</span>
+          </div>
 
-      <!-- Icon -->
-      <div class="flex justify-center mb-5">
-        <div class="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
-          <svg class="w-8 h-8 text-amber-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-          </svg>
+          <div id="rcaLoading">
+            <div class="skel" style="width:78%;height:18px;margin-top:18px"></div>
+            <div class="skel" style="width:100%;margin-top:16px"></div>
+            <div class="skel" style="width:92%;margin-top:10px"></div>
+            <div class="skel" style="width:64%;margin-top:10px"></div>
+            <div class="skel" style="width:100%;height:44px;margin-top:18px;border-radius:14px"></div>
+          </div>
+
+          <div id="rcaBody" hidden>
+            <h4 id="rcaSummary"></h4>
+            <p id="rcaNarrative"></p>
+            <div class="rc"><span>Root cause · <b id="rcaConf"></b> confidence</span><div id="rcaRoot"></div></div>
+            <ol class="actions" id="rcaActions"></ol>
+            <div class="rca-foot">
+              <span class="meta" id="rcaMeta"></span>
+              <button class="btn btn-secondary" id="copyBtn" style="height:36px;padding:0 14px;font-size:13px;border-radius:11px" data-magnetic>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="3"/><path d="M16 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2h2"/></svg>
+                <span id="copyText">Copy for Slack</span>
+              </button>
+            </div>
+            <details class="payload" id="payloadDetails">
+              <summary><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 6l6 6-6 6z"/></svg>Block Kit payload</summary>
+              <pre id="rcaJson"></pre>
+            </details>
+          </div>
         </div>
       </div>
+    </section>
 
-      <h2 class="text-center text-xl font-bold text-white mb-1">Approval Required</h2>
-      <p class="text-center text-xs text-zinc-500 uppercase tracking-widest mb-5 font-semibold" id="modalRisk">Risk: —</p>
-
-      <!-- Finding -->
-      <div class="bg-black/40 rounded-lg border border-white/10 px-4 py-3 mb-6">
-        <p class="text-xs text-zinc-500 mb-1 uppercase tracking-wider font-semibold">Critic Finding</p>
-        <p id="modalFinding" class="text-sm text-zinc-300 font-mono leading-relaxed"></p>
+    <!-- ══════════════════════════════════════════════ WORKSPACE -->
+    <section class="section workspace reveal">
+      <div class="panel glass spot">
+        <div class="panel-head">
+          <h3>Live trace</h3>
+          <span class="meta" id="traceCount">0 events</span>
+        </div>
+        <div class="trace" id="trace">
+          <div class="trace-hover" id="traceHover"></div>
+          <div class="empty" id="traceEmpty">
+            <div>
+              <div class="empty-mark" style="margin-inline:auto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg></div>
+              <h4>Nothing traced yet</h4>
+              <p>Every tool call, retry and fallback lands here with its latency and the agent's reasoning.</p>
+            </div>
+          </div>
+          <ol class="trace-list" id="traceList" aria-label="Trace events"></ol>
+        </div>
       </div>
 
-      <p class="text-center text-sm text-zinc-400 mb-5">The critic has flagged this domain. Approve to send an alert, or deny to suppress.</p>
+      <div class="panel glass spot">
+        <div class="panel-head">
+          <h3>Blackboard</h3>
+          <span class="version" id="bbVersion">v0</span>
+        </div>
+        <div class="bb" id="bb">
+          <div class="bb-empty">Shared state appears here as agents write to it.</div>
+        </div>
+      </div>
+    </section>
 
-      <!-- Buttons -->
-      <div class="flex gap-3">
-        <button id="denyBtn" onclick="submitApproval('deny')"
-          class="flex-1 py-3 rounded-md border border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500/20 font-semibold text-sm transition active:scale-95">
-          ✕ Deny
-        </button>
-        <button id="approveBtn" onclick="submitApproval('approve')"
-          class="flex-1 py-3 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm transition active:scale-95 shadow-lg shadow-emerald-500/20">
-          ✓ Approve
-        </button>
+    <footer class="footer">
+      <span>Domain Guardian · multi‑agent SRE audit</span>
+      <span class="mono">⌘K focus · ↵ run · B batch</span>
+    </footer>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ BATCH DRAWER -->
+  <div class="scrim" id="scrim"></div>
+  <aside class="drawer glass" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle" aria-hidden="true">
+    <div class="drawer-head">
+      <div>
+        <h3 id="drawerTitle">Reliability harness</h3>
+        <p>Run many audits back‑to‑back and measure how often they complete.</p>
+      </div>
+      <button class="btn icon-btn" id="closeBatch" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <div>
+      <label class="label-sm" for="batchDomains">Domains, one per line</label>
+      <textarea class="input" id="batchDomains" spellcheck="false">example.com
+github.com</textarea>
+    </div>
+
+    <div class="batch-row">
+      <div>
+        <span class="label-sm" id="repLbl">Repeats</span>
+        <div class="stepper" role="group" aria-labelledby="repLbl">
+          <button type="button" id="repDec" aria-label="Fewer repeats">−</button>
+          <output id="repeats">3</output>
+          <button type="button" id="repInc" aria-label="More repeats">+</button>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="runBatch" data-magnetic>
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 5.5v13a1 1 0 001.5.86l11-6.5a1 1 0 000-1.72l-11-6.5A1 1 0 007 5.5z"/></svg>
+        <span>Run batch</span>
+      </button>
+    </div>
+
+    <div id="batchOut" hidden>
+      <div class="batch-metrics">
+        <div class="stat"><b id="bRate">—</b><span>completion rate</span><div class="batch-bar"><i id="bBar"></i></div></div>
+        <div class="stat"><b id="bRuns">—</b><span>runs</span></div>
+        <div class="stat"><b id="bLat">—</b><span>avg latency</span></div>
+      </div>
+      <ul class="batch-rows" id="bRows" style="margin-top:14px"></ul>
+    </div>
+    <div id="batchLoading" hidden>
+      <div class="skel" style="height:34px;width:50%;margin-top:6px"></div>
+      <div class="skel" style="margin-top:18px"></div>
+      <div class="skel" style="margin-top:10px;width:86%"></div>
+      <div class="skel" style="margin-top:10px;width:70%"></div>
+    </div>
+  </aside>
+
+  <!-- ══════════════════════════════════════════════ APPROVAL MODAL -->
+  <div class="scrim" id="modalScrim"></div>
+  <div class="modal-wrap" id="modalWrap">
+    <div class="modal glass" role="alertdialog" aria-modal="true" aria-labelledby="modalTitle" aria-describedby="modalFinding">
+      <div class="modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L2.4 17.5A2 2 0 004.1 20.5h15.8a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg></div>
+      <h3 id="modalTitle">Your sign‑off is needed</h3>
+      <div class="risk" id="modalRisk">Medium risk</div>
+      <div class="finding"><span>Critic finding</span><div id="modalFinding"></div></div>
+      <p class="hint">Approve to send the alert, or deny to suppress it. The audit is paused until you decide.</p>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="denyBtn">Deny</button>
+        <button class="btn btn-primary" id="approveBtn">Approve alert</button>
       </div>
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════════════════════════ SCRIPTS -->
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
   <script>
-    // ── State ─────────────────────────────────────────────────────────────────
-    let currentRunId   = null;
-    let eventSource    = null;
-    let timerInterval  = null;
-    let startTime      = null;
-    let bbVersionCount = 0;
-    let traceRowCount  = 0;
-    const MAX_STEPS    = 12;
-    const MAX_TIME_S   = 25;
+  (() => {
+    'use strict';
 
-    // ── DOM refs ──────────────────────────────────────────────────────────────
-    const domainInput   = document.getElementById('domainInput');
-    const chaosSelect   = document.getElementById('chaosSelect');
-    const runBtn        = document.getElementById('runBtn');
-    const runBtnText    = document.getElementById('runBtnText');
-    const runIcon       = document.getElementById('runIcon');
-    const traceBody     = document.getElementById('traceBody');
-    const traceEmpty    = document.getElementById('traceEmpty');
-    const traceCountEl  = document.getElementById('traceCount');
-    const bbCode        = document.getElementById('bbCode');
-    const bbVersionEl   = document.getElementById('bbVersion');
-    const verdictCard   = document.getElementById('verdictCard');
-    const liveDot       = document.getElementById('liveDot');
-    const liveLabel     = document.getElementById('liveLabel');
-    const stepsBar      = document.getElementById('stepsBar');
-    const stepsLabel    = document.getElementById('stepsLabel');
-    const timeBar       = document.getElementById('timeBar');
-    const timeLabel     = document.getElementById('timeLabel');
-    const approvalModal = document.getElementById('approvalModal');
-    const rcaThinking   = document.getElementById('rcaThinking');
-    const rcaCard       = document.getElementById('rcaCard');
+    const MAX_STEPS  = 12;
+    const MAX_TIME_S = 25;
+    const RING       = 75.4;   // 2πr for r=12
+    const $  = (s, r = document) => r.querySelector(s);
+    const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const finePtr = matchMedia('(pointer: fine)').matches;
 
-    // ── Status badge config ───────────────────────────────────────────────────
-    const STATUS_CONFIG = {
-      ok:       { bg: 'bg-emerald-500/15', text: 'text-emerald-400', border: 'border-emerald-500/30', dot: '●', label: 'OK' },
-      degraded: { bg: 'bg-amber-500/15',   text: 'text-amber-400',   border: 'border-amber-500/30',   dot: '◆', label: 'DEGRADED' },
-      failed:   { bg: 'bg-red-500/15',     text: 'text-red-400',     border: 'border-red-500/30',     dot: '✕', label: 'FAILED' },
-      retrying: { bg: 'bg-sky-500/15',     text: 'text-sky-400',     border: 'border-sky-500/30',     dot: '↺', label: 'RETRYING' },
-    };
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 
-    const AGENT_COLORS = {
-      planner:     'text-violet-400',
-      dns_agent:   'text-cyan-400',
-      rdap_agent:  'text-sky-400',
-      uptime_agent:'text-blue-400',
-      cert_agent:  'text-teal-400',
-      critic:      'text-amber-400',
-      orchestrator:'text-rose-400',
-    };
+    // ── State ────────────────────────────────────────────────────────────
+    let runId = null, es = null, timer = null, t0 = 0;
+    let traceN = 0, bbVersion = 0, prevBB = {}, slackPayload = null;
+    let chaos = 'none', repeats = 3;
 
-    // ── Timer ─────────────────────────────────────────────────────────────────
+    // ═════════════════════════════════════════════════ THEME
+    const root = document.documentElement;
+    try { const t = localStorage.getItem('dg-theme'); if (t) root.dataset.theme = t; } catch {}
+    if (!root.dataset.theme) root.dataset.theme = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    $('#themeBtn').addEventListener('click', () => {
+      root.dataset.theme = root.dataset.theme === 'light' ? 'dark' : 'light';
+      try { localStorage.setItem('dg-theme', root.dataset.theme); } catch {}
+    });
+
+    // ═════════════════════════════════════════════════ CURSOR-DRIVEN MOTION
+    // One rAF loop drives: the trailing cursor ring, the ambient cursor orb,
+    // spotlight surfaces, and 3D tilt. Everything eases toward the pointer.
+    const pointer = { x: innerWidth / 2, y: innerHeight * .3, active: false };
+    const ring = { x: pointer.x, y: pointer.y }, orb = { x: pointer.x, y: pointer.y };
+    const cursor = $('#cursor'), dot = $('#cursorDot'), orbEl = $('#orbCursor');
+    const spots = $$('.spot');
+
+    addEventListener('pointermove', (e) => {
+      if (e.pointerType !== 'mouse') return;
+      pointer.x = e.clientX; pointer.y = e.clientY;
+      if (!pointer.active && finePtr && !reduced) document.body.classList.add('has-cursor');
+      pointer.active = true;
+      const t = e.target;
+      document.body.classList.toggle('cursor-text', !!t.closest?.('input[type=text], textarea'));
+      document.body.classList.toggle('cursor-hover', !!t.closest?.('button, a, summary, .chip, [data-hover]') && !t.closest('input, textarea'));
+    }, { passive: true });
+    document.addEventListener('pointerleave', () => document.body.classList.remove('has-cursor'));
+    addEventListener('pointerdown', () => document.body.classList.add('cursor-down'));
+    addEventListener('pointerup',   () => document.body.classList.remove('cursor-down'));
+
+    const tiltEls = $$('[data-tilt]');
+    function frame() {
+      ring.x += (pointer.x - ring.x) * .2;  ring.y += (pointer.y - ring.y) * .2;
+      orb.x  += (pointer.x - orb.x)  * .05; orb.y  += (pointer.y - orb.y)  * .05;
+      cursor.style.transform = `translate3d(${ring.x}px, ${ring.y}px, 0)`;
+      dot.style.transform    = `translate3d(${pointer.x}px, ${pointer.y}px, 0)`;
+      orbEl.style.transform  = `translate3d(${orb.x}px, ${orb.y}px, 0)`;
+
+      if (pointer.active) {
+        for (const el of spots) {
+          const r = el.getBoundingClientRect();
+          const near = pointer.x > r.left - 160 && pointer.x < r.right + 160 && pointer.y > r.top - 160 && pointer.y < r.bottom + 160;
+          el.classList.toggle('lit', near);
+          if (near) { el.style.setProperty('--mx', `${pointer.x - r.left}px`); el.style.setProperty('--my', `${pointer.y - r.top}px`); }
+        }
+        for (const el of tiltEls) {
+          const r = el.getBoundingClientRect();
+          const inside = pointer.x > r.left && pointer.x < r.right && pointer.y > r.top && pointer.y < r.bottom;
+          if (inside) {
+            const px = (pointer.x - r.left) / r.width - .5, py = (pointer.y - r.top) / r.height - .5;
+            el.style.transform = `perspective(1400px) rotateX(${(-py * 3).toFixed(2)}deg) rotateY(${(px * 4).toFixed(2)}deg)`;
+          } else el.style.transform = '';
+        }
+      }
+      requestAnimationFrame(frame);
+    }
+    if (!reduced) requestAnimationFrame(frame);
+
+    // Magnetic buttons: pulled gently toward the cursor, spring back on leave.
+    if (finePtr && !reduced) {
+      for (const el of $$('[data-magnetic]')) {
+        el.addEventListener('pointermove', (e) => {
+          const r = el.getBoundingClientRect();
+          el.style.setProperty('--tx', `${((e.clientX - r.left) / r.width - .5) * 10}px`);
+          el.style.setProperty('--ty', `${((e.clientY - r.top) / r.height - .5) * 8}px`);
+        });
+        el.addEventListener('pointerleave', () => { el.style.setProperty('--tx', '0px'); el.style.setProperty('--ty', '0px'); });
+      }
+    }
+
+    // Scroll reveal
+    const io = new IntersectionObserver((entries) => {
+      for (const en of entries) if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); }
+    }, { threshold: .12 });
+    $$('.reveal').forEach((el, i) => { el.style.transitionDelay = `${Math.min(i, 5) * 70}ms`; io.observe(el); });
+
+    // ═════════════════════════════════════════════════ SEGMENTED CONTROL
+    const seg = $('#chaos'), segThumb = $('.thumb', seg);
+    function moveThumb() {
+      const on = $('[aria-checked="true"]', seg);
+      segThumb.style.width = on.offsetWidth + 'px';
+      segThumb.style.transform = `translateX(${on.offsetLeft}px)`;
+    }
+    $$('button', seg).forEach(b => b.addEventListener('click', () => {
+      $$('button', seg).forEach(x => x.setAttribute('aria-checked', String(x === b)));
+      chaos = b.dataset.value; moveThumb();
+    }));
+    seg.addEventListener('keydown', (e) => {
+      if (!['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+      const bs = $$('button', seg), i = bs.findIndex(b => b.getAttribute('aria-checked') === 'true');
+      const n = bs[(i + (e.key === 'ArrowRight' ? 1 : bs.length - 1)) % bs.length];
+      n.click(); n.focus(); e.preventDefault();
+    });
+    addEventListener('resize', () => { moveThumb(); drawPipe(); });
+    document.fonts?.ready.then(() => { moveThumb(); drawPipe(); });
+    moveThumb();
+
+    // ═════════════════════════════════════════════════ PIPELINE WIRES
+    const pipe = $('#pipe'), pipeSvg = $('#pipeSvg');
+    const node = (a) => $(`.node[data-agent="${a}"]`, pipe);
+    const SPECIALISTS = ['dns_agent', 'rdap_agent', 'uptime_agent', 'cert_agent'];
+    const wires = {};   // key "from>to" -> flow path
+
+    function anchor(el, side) {
+      const p = pipe.getBoundingClientRect(), r = el.getBoundingClientRect();
+      return { x: (side === 'r' ? r.right : r.left) - p.left, y: r.top + r.height / 2 - p.top };
+    }
+    function curve(a, b) { const m = (a.x + b.x) / 2; return `M${a.x},${a.y} C${m},${a.y} ${m},${b.y} ${b.x},${b.y}`; }
+    function drawPipe() {
+      if (getComputedStyle(pipeSvg).display === 'none') return;
+      const links = [
+        ...SPECIALISTS.map(s => ['planner', s]),
+        ...SPECIALISTS.map(s => [s, 'critic']),
+        ['critic', 'approval_gate'],
+      ];
+      pipeSvg.innerHTML = '';
+      for (const [f, t] of links) {
+        const d = curve(anchor(node(f), 'r'), anchor(node(t), 'l'));
+        const base = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        base.setAttribute('d', d);
+        const flow = base.cloneNode(); flow.classList.add('flow');
+        if (wires[`${f}>${t}`]?.classList.contains('on')) flow.classList.add('on');
+        pipeSvg.append(base, flow);
+        wires[`${f}>${t}`] = flow;
+      }
+    }
+    function sendPacket(from, to) {
+      const w = wires[`${from}>${to}`];
+      if (!w || reduced) return;
+      w.classList.add('on');
+      const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      c.setAttribute('r', '3.5'); c.classList.add('packet');
+      pipeSvg.appendChild(c);
+      const len = w.getTotalLength(), start = performance.now(), dur = 700;
+      (function step(now) {
+        const k = Math.min((now - start) / dur, 1), e = 1 - Math.pow(1 - k, 3);
+        const p = w.getPointAtLength(len * e);
+        c.setAttribute('cx', p.x); c.setAttribute('cy', p.y);
+        if (k < 1) requestAnimationFrame(step); else c.remove();
+      })(start);
+    }
+
+    let lastAgent = null;
+    function setNode(agent, s, retries) {
+      const n = node(agent); if (!n) return;
+      // settle whichever node was active before
+      $$('.node[data-s="active"]', pipe).forEach(x => { if (x !== n) x.dataset.s = x.dataset.done || 'ok'; });
+      const map = { ok: 'ok', degraded: 'warn', failed: 'fail', retrying: 'active' };
+      const final = map[s] || 'ok';
+      // stays "active" until the next agent speaks, then settles to its result
+      n.dataset.s = 'active';
+      n.dataset.done = final === 'active' ? '' : final;
+      const badge = $('.retry-badge', n);
+      if (badge) { badge.classList.toggle('show', retries > 0); if (retries > 0) badge.textContent = `retry ${retries}`; }
+      if (lastAgent !== agent) {
+        if (SPECIALISTS.includes(agent)) sendPacket('planner', agent);
+        if (agent === 'critic') SPECIALISTS.forEach(s2 => node(s2).dataset.s !== 'idle' && sendPacket(s2, 'critic'));
+        if (agent === 'approval_gate') sendPacket('critic', 'approval_gate');
+      }
+      lastAgent = agent;
+    }
+    function settleAll() {
+      $$('.node', pipe).forEach(n => { if (n.dataset.s === 'active') n.dataset.s = n.dataset.done || 'ok'; });
+      Object.values(wires).forEach(w => w.classList.remove('on'));
+    }
+
+    // ═════════════════════════════════════════════════ SIGNALS
+    function setSignal(key, value, unit, sub, tone) {
+      const el = $(`.signal[data-key="${key}"]`); if (!el) return;
+      const v = $('.signal-value', el);
+      const html = `${esc(value)}${unit ? `<small>${esc(unit)}</small>` : ''}`;
+      if (v.innerHTML !== html) { v.innerHTML = html; v.classList.remove('pop'); void v.offsetWidth; v.classList.add('pop'); }
+      $('.signal-sub', el).textContent = sub;
+      el.dataset.tone = tone || '';
+    }
+    function renderSignals(bb) {
+      if (bb.dns) {
+        const d = bb.dns;
+        if (d.resolved) setSignal('dns', (d.addresses || []).length, (d.addresses || []).length === 1 ? 'record' : 'records', (d.addresses || []).slice(0, 2).join(', ') || 'resolved', 'ok');
+        else setSignal('dns', 'None', '', `status ${d.status_code ?? '—'} · did not resolve`, 'fail');
+      }
+      if (bb.uptime) {
+        const u = bb.uptime;
+        if (u.reachable) setSignal('uptime', u.status_code, '', `${u.scheme} · ${u.final_url || ''}`, u.status_code < 400 ? 'ok' : 'warn');
+        else setSignal('uptime', 'Down', '', 'no HTTPS or HTTP response', 'fail');
+      }
+      if (bb.cert) {
+        const c = bb.cert;
+        if (c.checked && c.days_left != null) setSignal('cert', c.days_left, 'days', c.expires ? `expires ${c.expires}` : 'valid', c.days_left < 14 ? 'fail' : c.days_left < 30 ? 'warn' : 'ok');
+        else setSignal('cert', '—', '', 'not checked', 'warn');
+      }
+      if (bb.rdap) {
+        const r = bb.rdap;
+        if (r.days_left != null) setSignal('rdap', r.days_left, 'days', `until ${r.queried_apex || 'renewal'} expires`, r.days_left < 30 ? 'warn' : 'ok');
+        else setSignal('rdap', r.found ? 'Active' : 'n/a', '', r.error || 'no expiry published', r.found ? 'ok' : '');
+      }
+    }
+    const SIGNAL_OF = { dns_agent: 'dns', uptime_agent: 'uptime', cert_agent: 'cert', rdap_agent: 'rdap' };
+    function resetSignals() {
+      const subs = { dns: 'awaiting resolver', uptime: 'awaiting request', cert: 'awaiting handshake', rdap: 'awaiting RDAP' };
+      for (const k in subs) { const el = $(`.signal[data-key="${k}"]`); $('.signal-value', el).textContent = '—'; $('.signal-sub', el).textContent = subs[k]; el.dataset.tone = ''; }
+    }
+
+    // ═════════════════════════════════════════════════ BUDGET GAUGES
+    function setGauge(id, frac) { const g = $(id); $('.fill', g).style.strokeDashoffset = RING * (1 - Math.min(frac, 1)); g.classList.toggle('hot', frac > .8); }
+    function updateSteps(n) { $('#stepsLabel').textContent = `${n}/${MAX_STEPS}`; setGauge('#stepsGauge', n / MAX_STEPS); }
     function startTimer() {
-      startTime = Date.now();
-      timerInterval = setInterval(() => {
-        const elapsed = (Date.now() - startTime) / 1000;
-        const pct = Math.min((elapsed / MAX_TIME_S) * 100, 100);
-        timeBar.style.width = pct + '%';
-        timeLabel.textContent = `${elapsed.toFixed(1)}s / ${MAX_TIME_S}s`;
-        if (pct > 80) timeBar.classList.replace('bg-violet-500', 'bg-red-500');
-      }, 200);
+      t0 = performance.now();
+      timer = setInterval(() => {
+        const s = (performance.now() - t0) / 1000;
+        $('#timeLabel').textContent = `${s.toFixed(1)}s`;
+        setGauge('#timeGauge', s / MAX_TIME_S);
+      }, 100);
     }
+    const stopTimer = () => clearInterval(timer);
 
-    function stopTimer() {
-      clearInterval(timerInterval);
-    }
+    // ═════════════════════════════════════════════════ STATUS
+    const STATUS = { idle: 'Idle', running: 'Auditing', waiting: 'Awaiting you', done: 'Complete', error: 'Connection lost' };
+    function setStatus(s) { $('#statusPill').dataset.state = s; $('#statusText').textContent = STATUS[s] || s; }
 
-    function updateSteps(step) {
-      const pct = Math.min((step / MAX_STEPS) * 100, 100);
-      stepsBar.style.width = pct + '%';
-      stepsLabel.textContent = `${step} / ${MAX_STEPS}`;
-    }
+    // ═════════════════════════════════════════════════ TRACE
+    const traceEl = $('#trace'), traceList = $('#traceList'), traceHover = $('#traceHover');
+    const AGENT_LABEL = { planner: 'Planner', dns_agent: 'DNS', rdap_agent: 'Registration', uptime_agent: 'Uptime', cert_agent: 'TLS', critic: 'Critic', orchestrator: 'Orchestrator', approval_gate: 'Approval gate', human: 'You' };
 
-    // ── Live dot status ───────────────────────────────────────────────────────
-    function setLiveStatus(status) {
-      liveDot.className = 'live-dot ' + status;
-      const labels = { idle:'Idle', running:'Running', waiting:'Awaiting approval', done:'Done' };
-      liveLabel.textContent = labels[status] || status;
-      liveLabel.className = `text-xs font-mono ${
-        status === 'running' ? 'text-cyan-400' :
-        status === 'waiting' ? 'text-amber-400' :
-        status === 'done'    ? 'text-emerald-400' : 'text-zinc-500'}`;
-    }
-
-    // ── Reset UI ──────────────────────────────────────────────────────────────
-    function resetUI() {
-      traceBody.innerHTML = '';
-      traceBody.appendChild(traceEmpty);
-      traceEmpty.style.display = 'flex';
-      traceRowCount = 0;
-      bbVersionCount = 0;
-      traceCountEl.textContent = '0 events';
-      bbCode.textContent = '// awaiting first event…';
-      bbCode.className = 'text-zinc-600 italic';
-      bbVersionEl.textContent = 'v0';
-      verdictCard.classList.add('hidden');
-      rcaCard.classList.add('hidden');
-      rcaThinking.classList.add('hidden');
-      stepsBar.style.width = '0%';
-      stepsLabel.textContent = `0 / ${MAX_STEPS}`;
-      timeBar.style.width = '0%';
-      timeBar.className = 'budget-fill h-full bg-violet-500 rounded-full';
-      timeLabel.textContent = `0.0s / ${MAX_TIME_S}s`;
-      setLiveStatus('idle');
-    }
-
-    // ── Add trace row ─────────────────────────────────────────────────────────
-    function addTraceRow(ev) {
-      traceEmpty.style.display = 'none';
-      traceRowCount++;
-      traceCountEl.textContent = `${traceRowCount} event${traceRowCount !== 1 ? 's' : ''}`;
-
-      const cfg    = STATUS_CONFIG[ev.status] || STATUS_CONFIG.ok;
-      const agentC = AGENT_COLORS[ev.agent] || 'text-zinc-300';
-
-      const row = document.createElement('div');
-      row.className = 'trace-row grid grid-cols-[90px_100px_1fr_80px_60px] gap-3 px-4 py-2.5 hover:bg-zinc-800/50 transition-colors text-sm';
-      row.innerHTML = `
-        <span class="font-mono font-medium text-xs ${agentC} truncate self-center">${esc(ev.agent)}</span>
-        <span class="self-center">
-          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${cfg.bg} ${cfg.text} ${cfg.border}">
-            <span>${cfg.dot}</span>${cfg.label}
-          </span>
-        </span>
-        <span class="font-mono text-xs text-zinc-400 self-center leading-relaxed">${esc(ev.rationale || ev.note || '')}</span>
-        <span class="font-mono text-xs text-right self-center ${ev.latency_ms > 2000 ? 'text-amber-400' : 'text-zinc-500'}">
-          ${ev.latency_ms != null ? ev.latency_ms + ' ms' : '—'}
-        </span>
-        <span class="font-mono text-xs text-right self-center ${ev.retries > 0 ? 'text-amber-400 font-semibold' : 'text-zinc-600'}">
-          ${ev.retries != null ? ev.retries : '—'}
-        </span>
-      `;
-      traceBody.appendChild(row);
-      row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-
+    function addTrace(ev) {
+      $('#traceEmpty').hidden = true;
+      traceN++;
+      $('#traceCount').textContent = `${traceN} event${traceN === 1 ? '' : 's'}`;
+      const li = document.createElement('li');
+      li.className = 't-row'; li.dataset.s = ev.status;
+      const tag = ['degraded', 'failed', 'retrying'].includes(ev.status) ? `<span class="tag tag-${ev.status}">${ev.status}</span>` : '';
+      const lat = ev.latency_ms != null ? `${ev.latency_ms} ms` : '—';
+      li.innerHTML = `
+        <span class="t-time">${ev.elapsed_s != null ? Number(ev.elapsed_s).toFixed(2) + 's' : ''}</span>
+        <span class="t-agent"><i></i>${esc(AGENT_LABEL[ev.agent] || ev.agent)}</span>
+        <span class="t-msg">${esc(ev.rationale || '')}${tag}${ev.tool ? `<br><span class="tool">${esc(ev.tool)}</span>` : ''}</span>
+        <span class="t-lat ${ev.latency_ms > 2000 ? 'slow' : ''}">${lat}${ev.retries > 0 ? `<span class="r">${ev.retries} retr${ev.retries === 1 ? 'y' : 'ies'}</span>` : ''}</span>`;
+      traceList.appendChild(li);
+      const nearBottom = traceEl.scrollHeight - traceEl.scrollTop - traceEl.clientHeight < 140;
+      if (nearBottom) traceEl.scrollTo({ top: traceEl.scrollHeight, behavior: reduced ? 'auto' : 'smooth' });
       if (ev.step) updateSteps(ev.step);
     }
 
-    // ── Blackboard update ─────────────────────────────────────────────────────
-    function updateBlackboard(bb) {
-      bbVersionCount++;
-      bbVersionEl.textContent = `v${bbVersionCount}`;
-      bbCode.className = 'text-zinc-300';
-      bbCode.textContent = JSON.stringify(bb, null, 2);
+    // Hover highlight that glides between rows, following the cursor.
+    traceList.addEventListener('pointerover', (e) => {
+      const row = e.target.closest('.t-row'); if (!row) return;
+      traceHover.style.height = row.offsetHeight + 'px';
+      traceHover.style.transform = `translateY(${row.offsetTop + 8}px)`;
+      traceHover.style.opacity = 1;
+    });
+    traceList.addEventListener('pointerleave', () => { traceHover.style.opacity = 0; });
+
+    // ═════════════════════════════════════════════════ BLACKBOARD
+    function highlightJSON(obj) {
+      return esc(JSON.stringify(obj, null, 2))
+        .replace(/(&quot;[^&]*?&quot;)(\s*:)/g, '<span class="j-k">$1</span>$2')
+        .replace(/:\s(&quot;.*?&quot;)/g, ': <span class="j-s">$1</span>')
+        .replace(/:\s(-?\d+\.?\d*)/g, ': <span class="j-n">$1</span>')
+        .replace(/:\s(true|false)/g, ': <span class="j-b">$1</span>')
+        .replace(/:\s(null)/g, ': <span class="j-z">$1</span>');
+    }
+    const BB_ORDER = ['dns', 'uptime', 'cert', 'rdap'];
+    function renderBB(bb) {
+      const keys = Object.keys(bb).sort((a, b) => (BB_ORDER.indexOf(a) + 1 || 99) - (BB_ORDER.indexOf(b) + 1 || 99));
+      const changed = keys.filter(k => JSON.stringify(bb[k]) !== JSON.stringify(prevBB[k]));
+      if (!changed.length && Object.keys(prevBB).length) return;
+      bbVersion++;
+      const v = $('#bbVersion'); v.textContent = `v${bbVersion}`; v.classList.add('bump'); setTimeout(() => v.classList.remove('bump'), 700);
+      $('#bb').innerHTML = keys.map(k => `
+        <div class="bb-key ${changed.includes(k) ? 'changed' : ''}" data-k="${esc(k)}">
+          <div class="bb-key-name">${esc(k)}<span>${changed.includes(k) ? 'just written' : ''}</span></div>
+          <pre>${highlightJSON(bb[k])}</pre>
+        </div>`).join('');
+      requestAnimationFrame(() => requestAnimationFrame(() => $$('.bb-key.changed').forEach(el => el.classList.remove('changed'))));
+      prevBB = JSON.parse(JSON.stringify(bb));
+      renderSignals(bb);
     }
 
-    // ── Verdict card ──────────────────────────────────────────────────────────
+    // ═════════════════════════════════════════════════ VERDICT + RCA
+    const VERDICT_WORD = { healthy: 'Healthy', degraded: 'Degraded', at_risk: 'At risk', unknown: 'Unverified' };
+    const VERDICT_TONE = { healthy: 'ok', degraded: 'warn', at_risk: 'fail', unknown: 'unknown' };
     function showVerdict(ev) {
-      const v = ev.verdict;
-      const riskColors = {
-        low:    { badge: 'text-emerald-400', border: 'border-emerald-500/30', card: 'border-emerald-500/20', riskBg: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' },
-        medium: { badge: 'text-amber-400',   border: 'border-amber-500/30',   card: 'border-amber-500/20',   riskBg: 'bg-amber-500/10 text-amber-400 border-amber-500/30' },
-        high:   { badge: 'text-red-400',     border: 'border-red-500/30',     card: 'border-red-500/20',     riskBg: 'bg-red-500/10 text-red-400 border-red-500/30' },
-      };
-      const verdictIcons = { healthy: '✓ HEALTHY', degraded: '⚠ DEGRADED', at_risk: '✕ AT RISK' };
-      const rc = riskColors[ev.risk] || riskColors.low;
-
-      verdictCard.className = `rounded-xl border ${rc.card} bg-zinc-900/80 shadow-lg shadow-black/50 p-5 animate-fade-in transition-all verdict-${v}`;
-      verdictCard.classList.remove('hidden');
-
-      document.getElementById('verdictBadge').className  = `text-2xl font-bold font-mono uppercase tracking-wide ${rc.badge}`;
-      document.getElementById('verdictBadge').textContent = verdictIcons[v] || v.toUpperCase();
-      document.getElementById('verdictRisk').className    = `text-xs px-2 py-0.5 rounded-full border font-semibold uppercase tracking-wider ${rc.riskBg}`;
-      document.getElementById('verdictRisk').textContent  = `Risk: ${ev.risk}`;
-      document.getElementById('verdictSummary').textContent = ev.summary || '';
-      document.getElementById('verdictSteps').textContent   = `${ev.total_steps} steps`;
-      document.getElementById('verdictTime').textContent    = `${ev.elapsed_s}s elapsed`;
-
-      verdictCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      if (ev.blackboard) updateBlackboard(ev.blackboard);
-
-      // Show RCA thinking placeholder immediately — real card arrives ~1-2s later
-      rcaThinking.classList.remove('hidden');
-      rcaThinking.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      const sec = $('#verdictSection');
+      sec.hidden = false;
+      const v = $('#verdict');
+      v.dataset.tone = VERDICT_TONE[ev.verdict] || 'unknown';
+      $('#verdictWord').textContent = VERDICT_WORD[ev.verdict] || ev.verdict;
+      $('#verdictSummary').textContent = ev.summary || '';
+      $('#vRisk').textContent = ev.risk;
+      countUp($('#vSteps'), ev.total_steps ?? ev.step ?? 0, '');
+      countUp($('#vTime'), ev.elapsed_s ?? 0, 's', 1);
+      $('#rcaLoading').hidden = false; $('#rcaBody').hidden = true;
+      $('#rcaSev').textContent = '…'; $('#rcaSev').removeAttribute('data-sev');
+      if (ev.blackboard) renderBB(ev.blackboard);
+      updateSteps(ev.total_steps ?? 0);
+      settleAll();
+      sec.animate?.([{ opacity: 0, transform: 'translateY(16px)', filter: 'blur(8px)' }, { opacity: 1, transform: 'none', filter: 'none' }], { duration: reduced ? 1 : 700, easing: 'cubic-bezier(.22,1,.36,1)' });
+      sec.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'center' });
     }
-
-    // ── Approval modal ────────────────────────────────────────────────────────
-    function showApprovalModal(ev) {
-      const riskText = { low: '🟢 LOW RISK', medium: '🟡 MEDIUM RISK', high: '🔴 HIGH RISK' };
-      document.getElementById('modalRisk').textContent    = riskText[ev.risk] || `Risk: ${ev.risk}`;
-      document.getElementById('modalFinding').textContent = ev.finding || 'No finding detail available.';
-      approvalModal.classList.remove('hidden');
-      setLiveStatus('waiting');
+    function showRCA(ev) {
+      const r = ev.rca || {};
+      $('#rcaLoading').hidden = true; $('#rcaBody').hidden = false;
+      const sev = r.severity || 'P3';
+      $('#rcaSev').textContent = sev; $('#rcaSev').dataset.sev = sev;
+      $('#rcaSummary').textContent = r.summary || 'No summary';
+      $('#rcaNarrative').textContent = r.narrative || '';
+      $('#rcaRoot').textContent = r.root_cause || '—';
+      $('#rcaConf').textContent = (r.confidence || 'low').toLowerCase();
+      $('#rcaActions').innerHTML = (r.recommended_actions || []).map((a, i) => `<li style="animation-delay:${i * 80}ms">${esc(a)}</li>`).join('');
+      $('#rcaMeta').textContent = `${r.model || 'gemini'} · ${r.latency_ms ?? '?'} ms`;
+      slackPayload = r.slack_payload || null;
+      $('#payloadDetails').hidden = !slackPayload;
+      $('#copyBtn').hidden = !slackPayload;
+      if (slackPayload) $('#rcaJson').textContent = JSON.stringify(slackPayload, null, 2);
+      if (r.error) toast('Incident report degraded', r.error, 'error');
     }
-
-    function hideApprovalModal() {
-      approvalModal.classList.add('hidden');
-      setLiveStatus('running');
+    function countUp(el, to, suffix, dp = 0) {
+      const n = Number(to) || 0;
+      if (reduced) { el.textContent = n.toFixed(dp) + suffix; return; }
+      const s = performance.now(), dur = 900;
+      (function step(now) { const k = Math.min((now - s) / dur, 1), e = 1 - Math.pow(1 - k, 4); el.textContent = (n * e).toFixed(dp) + suffix; if (k < 1) requestAnimationFrame(step); })(s);
     }
-
-    async function submitApproval(action) {
-      if (!currentRunId) return;
-      hideApprovalModal();
+    $('#copyBtn').addEventListener('click', async () => {
+      if (!slackPayload) return;
       try {
-        await fetch(`/audit/${currentRunId}/approve`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action }),
-        });
-        // Add a UI row for the approval decision
-        const cfg = action === 'approve' ? STATUS_CONFIG.ok : STATUS_CONFIG.failed;
-        const row = document.createElement('div');
-        row.className = 'trace-row grid grid-cols-[90px_100px_1fr_80px_60px] gap-3 px-4 py-2.5 bg-zinc-800/30 text-sm border-l-2 ' + (action === 'approve' ? 'border-emerald-500' : 'border-red-500');
-        row.innerHTML = `
-          <span class="font-mono text-xs text-zinc-500 self-center">human</span>
-          <span class="self-center">
-            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${cfg.bg} ${cfg.text} ${cfg.border}">
-              ${action === 'approve' ? '✓ APPROVED' : '✕ DENIED'}
-            </span>
-          </span>
-          <span class="font-mono text-xs text-zinc-500 self-center">${action === 'approve' ? 'Alert authorized by operator' : 'Alert suppressed by operator'}</span>
-          <span class="text-zinc-600 text-xs text-right self-center">—</span>
-          <span class="text-zinc-600 text-xs text-right self-center">—</span>
-        `;
-        traceBody.appendChild(row);
-        traceRowCount++;
-        traceCountEl.textContent = `${traceRowCount} events`;
-      } catch (err) {
-        console.error('Approval POST failed:', err);
-      }
-    }
-
-    // ── RCA card ──────────────────────────────────────────────────────────────
-    let _slackPayload = null;   // stored for Copy Slack button
-
-    function showRcaCard(ev) {
-      const rca      = ev.rca || {};
-      const severity = rca.severity || 'P3';
-      const sevColors = {
-        P1: { badge: 'bg-red-500/15 text-red-400 border-red-500/30',    conf: 'text-red-400' },
-        P2: { badge: 'bg-amber-500/15 text-amber-400 border-amber-500/30', conf: 'text-amber-400' },
-        P3: { badge: 'bg-sky-500/15 text-sky-400 border-sky-500/30',    conf: 'text-sky-400' },
-        P4: { badge: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30', conf: 'text-emerald-400' },
-      };
-      const confColors = { high: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10',
-                           medium: 'text-amber-400 border-amber-500/30 bg-amber-500/10',
-                           low: 'text-red-400 border-red-500/30 bg-red-500/10' };
-      const sc = sevColors[severity] || sevColors.P3;
-
-      // Hide thinking placeholder, show card
-      rcaThinking.classList.add('hidden');
-      rcaCard.classList.remove('hidden');
-      rcaCard.className = rcaCard.className.replace(/rca-P\d/g, '') + ` rca-${severity}`;
-
-      document.getElementById('rcaSummary').textContent    = rca.summary    || 'No summary';
-      document.getElementById('rcaNarrative').textContent  = rca.narrative  || '—';
-      document.getElementById('rcaRootCause').textContent  = rca.root_cause || '—';
-      document.getElementById('rcaMeta').textContent =
-        `${rca.model || 'gemini'} · ${rca.latency_ms ?? '?'}ms · ${ev.elapsed_s}s elapsed`;
-
-      document.getElementById('rcaSeverityBadge').textContent = severity;
-      document.getElementById('rcaSeverityBadge').className   =
-        `text-xs px-2.5 py-1 rounded-full font-bold uppercase tracking-wider border ${sc.badge}`;
-
-      const confEl = document.getElementById('rcaConfidence');
-      const conf   = (rca.confidence || 'low').toLowerCase();
-      confEl.textContent = conf.toUpperCase();
-      confEl.className   = `text-xs font-semibold px-2 py-0.5 rounded-full border ${confColors[conf] || confColors.low}`;
-
-      // Recommended actions list
-      const actionsEl = document.getElementById('rcaActions');
-      actionsEl.innerHTML = '';
-      (rca.recommended_actions || []).forEach((action, i) => {
-        const li = document.createElement('li');
-        li.className = 'flex items-start gap-2 text-zinc-300';
-        li.innerHTML = `
-          <span class="shrink-0 w-5 h-5 rounded-full bg-violet-500/20 border border-violet-500/30
-                       text-violet-400 text-xs font-bold flex items-center justify-center mt-0.5">${i + 1}</span>
-          <span class="font-mono text-xs leading-relaxed">${esc(action)}</span>
-        `;
-        actionsEl.appendChild(li);
-      });
-
-      // Slack payload preview
-      _slackPayload = rca.slack_payload || null;
-      if (_slackPayload) {
-        document.getElementById('rcaSlackJson').textContent =
-          JSON.stringify(_slackPayload, null, 2);
-      }
-
-      // If RCA has an error, show a warning tint
-      if (rca.error) {
-        rcaCard.classList.add('border-amber-800/40');
-      }
-
-      rcaCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-
-    function copySlackPayload() {
-      if (!_slackPayload) return;
-      navigator.clipboard.writeText(JSON.stringify(_slackPayload, null, 2)).then(() => {
-        const btn = document.getElementById('copySlackBtn');
-        const lbl = document.getElementById('copyBtnLabel');
-        lbl.textContent = 'Copied!';
-        btn.classList.add('copy-flash', 'border-emerald-500/40', 'text-emerald-400');
-        setTimeout(() => {
-          lbl.textContent = 'Copy Slack';
-          btn.classList.remove('copy-flash', 'border-emerald-500/40', 'text-emerald-400');
-        }, 1800);
-      });
-    }
-
-    // ── SSE handler ───────────────────────────────────────────────────────────
-    function handleSSE(run_id) {
-      if (eventSource) eventSource.close();
-      eventSource = new EventSource(`/audit/${run_id}/stream`);
-
-      eventSource.onmessage = (e) => {
-        let ev;
-        try { ev = JSON.parse(e.data); } catch { return; }
-
-        switch (ev.type) {
-          case 'trace':
-            addTraceRow(ev);
-            break;
-
-          case 'blackboard_update':
-            // Show as a slim row in trace + update blackboard panel
-            addTraceRow({
-              agent:      '╴blackboard',
-              status:     'ok',
-              rationale:  ev.note,
-              latency_ms: null,
-              retries:    null,
-              step:       ev.step,
-            });
-            updateBlackboard(ev.blackboard);
-            break;
-
-          case 'requires_approval':
-            showApprovalModal(ev);
-            break;
-
-          case 'approved':
-          case 'denied':
-            // approval was posted by UI already — stream continues
-            break;
-
-          case 'verdict':
-            showVerdict(ev);
-            // DON'T close eventSource here — rca event arrives next
-            break;
-
-          case 'rca':
-            showRcaCard(ev);
-            setRunComplete();
-            eventSource.close();
-            break;
-
-          default:
-            console.log('unknown event type:', ev.type);
-        }
-      };
-
-      eventSource.onerror = (err) => {
-        console.error('SSE error', err);
-        eventSource.close();
-        setRunComplete();
-      };
-    }
-
-    // ── Set run complete ──────────────────────────────────────────────────────
-    function setRunComplete() {
-      stopTimer();
-      setLiveStatus('done');
-      runBtn.disabled = false;
-      runBtnText.textContent = 'Run Audit';
-      runIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 010 1.972l-11.54 6.347a1.125 1.125 0 01-1.667-.986V5.653z" />`;
-    }
-
-    // ── Start audit ───────────────────────────────────────────────────────────
-    async function startAudit() {
-      const domain = domainInput.value.trim();
-      if (!domain) { domainInput.focus(); return; }
-
-      const chaos = chaosSelect.value;
-
-      resetUI();
-      runBtn.disabled = true;
-      runBtnText.textContent = 'Auditing…';
-      runIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="8 4" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />`;
-      setLiveStatus('running');
-      startTimer();
-
-      try {
-        const res  = await fetch('/audit', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ domain, chaos }),
-        });
-        const data = await res.json();
-        currentRunId = data.run_id;
-        handleSSE(currentRunId);
-      } catch (err) {
-        console.error('Failed to start audit:', err);
-        setRunComplete();
-        setLiveStatus('idle');
-      }
-    }
-
-    // ── Batch runner ──────────────────────────────────────────────────────────
-    async function runBatch() {
-      const raw     = document.getElementById('batchDomains').value.trim();
-      const repeats = parseInt(document.getElementById('batchRepeats').value) || 3;
-      if (!raw) return;
-      const domains = raw.split('\n').map(d => d.trim()).filter(Boolean);
-      if (!domains.length) return;
-
-      const resultEl = document.getElementById('batchResult');
-      const preEl    = document.getElementById('batchPre');
-      resultEl.classList.remove('hidden');
-      preEl.textContent = '⏳ Running batch…';
-
-      try {
-        const res  = await fetch('/batch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ domains, repeats }),
-        });
-        const data = await res.json();
-        preEl.textContent = JSON.stringify({
-          total_runs:       data.total_runs,
-          completed:        data.completed,
-          completion_rate:  data.completion_rate,
-          avg_latency_ms:   data.avg_latency_ms,
-        }, null, 2);
-      } catch (err) {
-        preEl.textContent = '✕ Batch request failed: ' + err.message;
-      }
-    }
-
-    // ── Keyboard shortcut ─────────────────────────────────────────────────────
-    domainInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !runBtn.disabled) startAudit();
+        await navigator.clipboard.writeText(JSON.stringify(slackPayload, null, 2));
+        $('#copyText').textContent = 'Copied';
+        setTimeout(() => $('#copyText').textContent = 'Copy for Slack', 1600);
+      } catch { toast('Couldn’t copy', 'Clipboard access was blocked by the browser.', 'error'); }
     });
 
-    // ── Utility ───────────────────────────────────────────────────────────────
-    function esc(str) {
-      return String(str ?? '')
-        .replace(/&/g,'&amp;')
-        .replace(/</g,'&lt;')
-        .replace(/>/g,'&gt;')
-        .replace(/"/g,'&quot;');
+    // ═════════════════════════════════════════════════ APPROVAL MODAL
+    const modalWrap = $('#modalWrap'), modalScrim = $('#modalScrim');
+    let lastFocus = null;
+    function openModal(ev) {
+      const risk = { low: 'Low risk', medium: 'Medium risk', high: 'High risk' };
+      $('#modalRisk').textContent = risk[ev.risk] || `Risk: ${ev.risk}`;
+      $('#modalFinding').textContent = ev.finding || 'No finding detail available.';
+      lastFocus = document.activeElement;
+      modalWrap.classList.add('open'); modalScrim.classList.add('open');
+      setStatus('waiting');
+      setNode('approval_gate', 'retrying', 0);
+      setTimeout(() => $('#approveBtn').focus(), 60);
     }
+    function closeModal() { modalWrap.classList.remove('open'); modalScrim.classList.remove('open'); lastFocus?.focus?.(); }
+    modalWrap.addEventListener('keydown', (e) => {
+      if (e.key !== 'Tab') return;
+      const a = $('#denyBtn'), b = $('#approveBtn');
+      if (e.shiftKey && document.activeElement === a) { b.focus(); e.preventDefault(); }
+      else if (!e.shiftKey && document.activeElement === b) { a.focus(); e.preventDefault(); }
+    });
+    async function decide(action) {
+      if (!runId) return;
+      closeModal(); setStatus('running');
+      try {
+        await fetch(`/audit/${runId}/approve`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action }) });
+        addTrace({ agent: 'human', status: 'human', rationale: action === 'approve' ? 'Alert authorised by operator' : 'Alert suppressed by operator' });
+        const n = node('approval_gate'); n.dataset.done = action === 'approve' ? 'ok' : 'warn'; n.dataset.s = n.dataset.done;
+      } catch (err) { toast('Decision not delivered', err.message, 'error'); }
+    }
+    $('#approveBtn').addEventListener('click', () => decide('approve'));
+    $('#denyBtn').addEventListener('click', () => decide('deny'));
+
+    // ═════════════════════════════════════════════════ TOAST
+    function toast(title, desc, kind = 'info') {
+      const t = document.createElement('div');
+      t.className = 'toast glass'; t.dataset.kind = kind;
+      t.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg><div><b>${esc(title)}</b><span>${esc(desc)}</span></div>`;
+      $('#toasts').appendChild(t);
+      setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 400); }, 4200);
+    }
+
+    // ═════════════════════════════════════════════════ RUN LIFECYCLE
+    const runBtn = $('#runBtn'), domainInput = $('#domainInput');
+    const PLAY = '<path d="M7 5.5v13a1 1 0 001.5.86l11-6.5a1 1 0 000-1.72l-11-6.5A1 1 0 007 5.5z"/>';
+    const SPIN = '<path d="M12 3a9 9 0 109 9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>';
+
+    function resetUI() {
+      traceList.innerHTML = ''; $('#traceEmpty').hidden = false; traceHover.style.opacity = 0;
+      traceN = 0; bbVersion = 0; prevBB = {}; slackPayload = null; lastAgent = null;
+      $('#traceCount').textContent = '0 events';
+      $('#bb').innerHTML = '<div class="bb-empty">Shared state appears here as agents write to it.</div>';
+      $('#bbVersion').textContent = 'v0';
+      $('#verdictSection').hidden = true;
+      $$('.node', pipe).forEach(n => { n.dataset.s = 'idle'; n.dataset.done = ''; $('.retry-badge', n)?.classList.remove('show'); });
+      Object.values(wires).forEach(w => w.classList.remove('on'));
+      resetSignals(); updateSteps(0);
+      $('#timeLabel').textContent = '0.0s'; setGauge('#timeGauge', 0);
+    }
+    function setRunning(on) {
+      runBtn.disabled = on;
+      $('#runText').textContent = on ? 'Auditing…' : 'Run audit';
+      $('#runIcon').innerHTML = on ? SPIN : PLAY;
+      $('#runIcon').classList.toggle('spin', on);
+    }
+    function finish(state = 'done') { stopTimer(); setRunning(false); settleAll(); setStatus(state); es?.close(); es = null; }
+
+    async function startAudit() {
+      const domain = domainInput.value.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+      if (!domain) { domainInput.focus(); return; }
+      domainInput.value = domain;
+      resetUI(); setRunning(true); setStatus('running'); startTimer();
+      $('#domainMeta').textContent = domain;
+      setNode('planner', 'retrying', 0);
+      try {
+        const res = await fetch('/audit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ domain, chaos }) });
+        if (!res.ok) throw new Error(`server returned ${res.status}`);
+        runId = (await res.json()).run_id;
+        stream(runId);
+      } catch (err) {
+        finish('error');
+        toast('Couldn’t start the audit', err.message, 'error');
+      }
+    }
+
+    function stream(id) {
+      es?.close();
+      es = new EventSource(`/audit/${id}/stream`);
+      let gotRCA = false;
+      es.onmessage = (e) => {
+        let ev; try { ev = JSON.parse(e.data); } catch { return; }
+        switch (ev.type) {
+          case 'trace':
+            addTrace(ev);
+            if (ev.agent !== 'orchestrator') setNode(ev.agent, ev.status, ev.retries);
+            // an agent that gives up writes nothing to the blackboard — say so in its signal
+            if (ev.status === 'failed' && SIGNAL_OF[ev.agent] && !prevBB[SIGNAL_OF[ev.agent]]) setSignal(SIGNAL_OF[ev.agent], 'Failed', '', ev.tool || 'no result', 'fail');
+            break;
+          case 'blackboard_update': renderBB(ev.blackboard); break;
+          case 'requires_approval': openModal(ev); break;
+          case 'verdict': showVerdict(ev); break;
+          case 'rca': gotRCA = true; showRCA(ev); finish('done'); break;
+          case 'error': toast('Audit failed', ev.message || 'Unknown error', 'error'); finish('error'); break;
+        }
+      };
+      es.onerror = () => { if (!gotRCA) finish($('#verdictSection').hidden ? 'error' : 'done'); else finish('done'); };
+    }
+
+    $('#auditForm').addEventListener('submit', (e) => { e.preventDefault(); if (!runBtn.disabled) startAudit(); });
+    $$('.chip[data-domain]').forEach(c => c.addEventListener('click', () => { domainInput.value = c.dataset.domain; domainInput.focus(); }));
+
+    // ═════════════════════════════════════════════════ BATCH DRAWER
+    const drawer = $('#drawer'), scrim = $('#scrim');
+    function openDrawer()  { drawer.classList.add('open'); scrim.classList.add('open'); drawer.setAttribute('aria-hidden', 'false'); setTimeout(() => $('#batchDomains').focus(), 200); }
+    function closeDrawer() { drawer.classList.remove('open'); scrim.classList.remove('open'); drawer.setAttribute('aria-hidden', 'true'); $('#openBatch').focus(); }
+    $('#openBatch').addEventListener('click', openDrawer);
+    $('#closeBatch').addEventListener('click', closeDrawer);
+    scrim.addEventListener('click', closeDrawer);
+    const setRep = (n) => { repeats = Math.max(1, Math.min(20, n)); $('#repeats').textContent = repeats; };
+    $('#repDec').addEventListener('click', () => setRep(repeats - 1));
+    $('#repInc').addEventListener('click', () => setRep(repeats + 1));
+
+    $('#runBatch').addEventListener('click', async () => {
+      const domains = $('#batchDomains').value.split('\n').map(d => d.trim()).filter(Boolean);
+      if (!domains.length) { $('#batchDomains').focus(); return; }
+      const btn = $('#runBatch'); btn.disabled = true; $('span', btn).textContent = 'Running…';
+      $('#batchOut').hidden = true; $('#batchLoading').hidden = false;
+      try {
+        const res = await fetch('/batch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ domains, repeats }) });
+        if (!res.ok) throw new Error(`server returned ${res.status}`);
+        const d = await res.json();
+        $('#batchLoading').hidden = true; $('#batchOut').hidden = false;
+        countUp($('#bRate'), (d.completion_rate || 0) * 100, '%');
+        $('#bRuns').textContent = `${d.completed}/${d.total_runs}`;
+        $('#bLat').textContent = `${d.avg_latency_s}s`;
+        requestAnimationFrame(() => $('#bBar').style.width = `${(d.completion_rate || 0) * 100}%`);
+        $('#bRows').innerHTML = (d.rows || []).map((r, i) => `
+          <li style="animation-delay:${i * 40}ms"><span class="d">${esc(r.domain)}</span><span>#${r.run}</span><span class="risk-${esc(r.risk)}">${esc(r.risk)}</span><span style="text-align:right">${r.elapsed_s}s</span></li>`).join('');
+      } catch (err) {
+        $('#batchLoading').hidden = true;
+        toast('Batch failed', err.message, 'error');
+      } finally { btn.disabled = false; $('span', btn).textContent = 'Run batch'; }
+    });
+
+    // ═════════════════════════════════════════════════ KEYBOARD
+    addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); domainInput.focus(); domainInput.select(); }
+      else if (e.key === 'Escape' && drawer.classList.contains('open')) closeDrawer();
+      else if (e.key.toLowerCase() === 'b' && !e.metaKey && !e.ctrlKey && !e.target.closest('input, textarea') && !modalWrap.classList.contains('open')) {
+        drawer.classList.contains('open') ? closeDrawer() : openDrawer();
+      }
+    });
+
+    drawPipe();
+  })();
   </script>
 </body>
 </html>
