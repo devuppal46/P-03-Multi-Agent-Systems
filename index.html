@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Domain Guardian — Live Audit</title>
+  <meta name="description" content="Real-time domain health auditing: DNS, TLS, Uptime, and RDAP via a multi-agent system." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'ui-sans-serif', 'system-ui'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+          },
+          colors: {
+            slate: {
+              850: '#172033',
+              950: '#0b1120',
+            }
+          },
+          animation: {
+            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'fade-in': 'fadeIn 0.4s ease-out forwards',
+            'slide-in': 'slideIn 0.3s ease-out forwards',
+          },
+          keyframes: {
+            fadeIn: { '0%': { opacity: '0', transform: 'translateY(6px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+            slideIn: { '0%': { opacity: '0', transform: 'translateX(-8px)' }, '100%': { opacity: '1', transform: 'translateX(0)' } },
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    * { box-sizing: border-box; }
+    body { background: #0b1120; }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #172033; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+    /* Glow effects */
+    .glow-cyan   { box-shadow: 0 0 16px rgba(34,211,238,0.25); }
+    .glow-green  { box-shadow: 0 0 16px rgba(74,222,128,0.25); }
+    .glow-red    { box-shadow: 0 0 16px rgba(248,113,113,0.25); }
+    .glow-amber  { box-shadow: 0 0 16px rgba(251,191,36,0.25); }
+
+    /* SSE row animation */
+    .trace-row { animation: fadeIn 0.35s ease-out forwards; }
+
+    /* Budget bar */
+    .budget-fill { transition: width 0.5s ease; }
+
+    /* Verdict glow */
+    .verdict-healthy  { box-shadow: 0 0 32px rgba(74,222,128,0.3); }
+    .verdict-degraded { box-shadow: 0 0 32px rgba(251,191,36,0.3); }
+    .verdict-at_risk  { box-shadow: 0 0 32px rgba(248,113,113,0.35); }
+
+    /* Modal backdrop */
+    #approvalModal {
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+
+    /* Typewriter cursor on rationale */
+    .typing::after {
+      content: '▌';
+      animation: blink 1s step-end infinite;
+      color: #38bdf8;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* Pulsing dot */
+    .live-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #4ade80;
+      animation: pulse-dot 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.4; transform: scale(0.7); }
+    }
+    .live-dot.idle { background: #475569; animation: none; }
+    .live-dot.running { background: #38bdf8; }
+    .live-dot.waiting { background: #fbbf24; }
+    .live-dot.done    { background: #4ade80; animation: none; }
+  </style>
+</head>
+
+<body class="font-sans text-slate-200 min-h-screen flex flex-col">
+
+  <!-- ══════════════════════════════════════════════════════════ TOP BAR -->
+  <header class="border-b border-slate-800 bg-slate-950/80 sticky top-0 z-30 backdrop-blur-sm">
+    <div class="max-w-screen-2xl mx-auto px-6 py-3 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+
+      <!-- Logo -->
+      <div class="flex items-center gap-2 mr-4 shrink-0">
+        <svg class="w-7 h-7 text-cyan-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+        </svg>
+        <span class="font-semibold text-white tracking-tight text-sm">Domain Guardian</span>
+        <span class="text-slate-600 text-xs font-mono hidden sm:inline">v1.0</span>
+      </div>
+
+      <!-- Domain input -->
+      <div class="flex-1 flex items-center gap-2 min-w-0 w-full">
+        <input
+          id="domainInput"
+          type="text"
+          placeholder="example.com"
+          value="example.com"
+          class="font-mono text-sm bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/60 focus:border-cyan-500 w-52 transition"
+          autocomplete="off"
+        />
+
+        <!-- Chaos toggle -->
+        <div class="flex items-center gap-1.5">
+          <span class="text-xs text-slate-500 whitespace-nowrap hidden md:block">Chaos:</span>
+          <select id="chaosSelect" class="font-mono text-xs bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500/50 cursor-pointer transition">
+            <option value="none">🟢 None</option>
+            <option value="dns_timeout">🌐 DNS Timeout</option>
+            <option value="cert_expired">🔐 Cert Expired</option>
+          </select>
+        </div>
+
+        <!-- Run button -->
+        <button
+          id="runBtn"
+          onclick="startAudit()"
+          class="flex items-center gap-2 px-4 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white text-sm font-semibold transition-all duration-150 shadow-md glow-cyan disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+        >
+          <svg id="runIcon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 010 1.972l-11.54 6.347a1.125 1.125 0 01-1.667-.986V5.653z" />
+          </svg>
+          <span id="runBtnText">Run Audit</span>
+        </button>
+      </div>
+
+      <!-- Budget gauges -->
+      <div class="flex items-center gap-4 ml-auto shrink-0">
+        <div class="flex items-center gap-1.5">
+          <div id="liveDot" class="live-dot idle"></div>
+          <span id="liveLabel" class="text-xs text-slate-500">Idle</span>
+        </div>
+
+        <div class="hidden sm:block">
+          <div class="flex items-center gap-1 mb-0.5">
+            <span class="text-xs text-slate-500 font-mono w-20">Steps</span>
+            <span id="stepsLabel" class="text-xs text-cyan-400 font-mono">0 / 12</span>
+          </div>
+          <div class="w-28 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+            <div id="stepsBar" class="budget-fill h-full bg-cyan-500 rounded-full" style="width:0%"></div>
+          </div>
+        </div>
+
+        <div class="hidden sm:block">
+          <div class="flex items-center gap-1 mb-0.5">
+            <span class="text-xs text-slate-500 font-mono w-20">Elapsed</span>
+            <span id="timeLabel" class="text-xs text-violet-400 font-mono">0.0s / 25s</span>
+          </div>
+          <div class="w-28 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+            <div id="timeBar" class="budget-fill h-full bg-violet-500 rounded-full" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ══════════════════════════════════════════════════════ MAIN CONTENT -->
+  <main class="flex-1 max-w-screen-2xl mx-auto w-full px-4 sm:px-6 py-5 grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-5">
+
+    <!-- ── LEFT: Live Trace ─────────────────────────────────────────────── -->
+    <section class="flex flex-col gap-4 min-w-0">
+
+      <!-- Section header -->
+      <div class="flex items-center gap-2">
+        <span class="text-xs font-semibold uppercase tracking-widest text-slate-500">Live Trace</span>
+        <div class="flex-1 h-px bg-slate-800"></div>
+        <span id="traceCount" class="text-xs text-slate-600 font-mono">0 events</span>
+      </div>
+
+      <!-- Trace table -->
+      <div class="rounded-xl border border-slate-800 bg-slate-900/70 overflow-hidden">
+        <!-- Table header -->
+        <div class="grid grid-cols-[90px_100px_1fr_80px_60px] gap-3 px-4 py-2 bg-slate-950/60 border-b border-slate-800 text-xs font-semibold uppercase tracking-wider text-slate-500">
+          <span>Agent</span>
+          <span>Status</span>
+          <span>Rationale</span>
+          <span class="text-right">Latency</span>
+          <span class="text-right">Retries</span>
+        </div>
+
+        <!-- Trace rows container -->
+        <div id="traceBody" class="divide-y divide-slate-800/60 min-h-[200px]">
+          <!-- Empty state -->
+          <div id="traceEmpty" class="flex flex-col items-center justify-center py-16 text-slate-600">
+            <svg class="w-10 h-10 mb-3 opacity-30" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+            </svg>
+            <p class="text-sm font-medium">No audit running</p>
+            <p class="text-xs mt-1">Enter a domain and click <span class="text-cyan-500">Run Audit</span></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Verdict card ─────────────────────────────────────────────── -->
+      <div id="verdictCard" class="hidden rounded-xl border bg-slate-900/80 p-5 animate-fade-in transition-all">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <p class="text-xs uppercase tracking-widest text-slate-500 mb-1">Final Verdict</p>
+            <div class="flex items-center gap-3">
+              <span id="verdictBadge" class="text-2xl font-bold font-mono uppercase tracking-wide"></span>
+              <span id="verdictRisk" class="text-xs px-2 py-0.5 rounded-full border font-semibold uppercase tracking-wider"></span>
+            </div>
+            <p id="verdictSummary" class="text-sm text-slate-400 mt-2 font-mono leading-relaxed"></p>
+          </div>
+          <div class="text-right text-xs text-slate-600 font-mono shrink-0">
+            <div id="verdictSteps"></div>
+            <div id="verdictTime"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── RIGHT: Blackboard sidebar ────────────────────────────────────── -->
+    <aside class="flex flex-col gap-4">
+
+      <!-- Blackboard header -->
+      <div class="flex items-center gap-2">
+        <span class="text-xs font-semibold uppercase tracking-widest text-slate-500">Blackboard</span>
+        <div class="flex-1 h-px bg-slate-800"></div>
+        <span id="bbVersion" class="text-xs text-slate-600 font-mono">v0</span>
+      </div>
+
+      <!-- Blackboard JSON -->
+      <div class="rounded-xl border border-slate-800 bg-slate-950 p-4 flex-1 overflow-hidden">
+        <pre id="bbPre" class="font-mono text-xs text-slate-400 leading-relaxed overflow-auto max-h-80 whitespace-pre-wrap break-all"><code id="bbCode" class="text-slate-600 italic">// awaiting first event…</code></pre>
+      </div>
+
+      <!-- Batch runner -->
+      <div class="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="text-xs font-semibold uppercase tracking-widest text-slate-500">Batch Harness</span>
+          <div class="flex-1 h-px bg-slate-800"></div>
+        </div>
+        <textarea
+          id="batchDomains"
+          rows="3"
+          placeholder="example.com&#10;google.com&#10;github.com"
+          class="w-full font-mono text-xs bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none"
+        ></textarea>
+        <div class="flex items-center gap-2 mt-2">
+          <label class="text-xs text-slate-500">Repeats:</label>
+          <input id="batchRepeats" type="number" value="3" min="1" max="20"
+            class="w-14 font-mono text-xs bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-200 focus:outline-none focus:ring-2 focus:ring-violet-500/50" />
+          <button onclick="runBatch()"
+            class="ml-auto px-3 py-1 rounded-lg bg-violet-700 hover:bg-violet-600 text-xs font-semibold text-white transition active:scale-95">
+            Run Batch
+          </button>
+        </div>
+        <div id="batchResult" class="hidden mt-3 rounded-lg bg-slate-950 border border-slate-800 p-3">
+          <pre id="batchPre" class="font-mono text-xs text-slate-300 whitespace-pre-wrap"></pre>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- ══════════════════════════════════════════ APPROVAL GATE MODAL -->
+  <div id="approvalModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-8 max-w-md w-full animate-fade-in">
+
+      <!-- Icon -->
+      <div class="flex justify-center mb-5">
+        <div class="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
+          <svg class="w-8 h-8 text-amber-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+          </svg>
+        </div>
+      </div>
+
+      <h2 class="text-center text-xl font-bold text-white mb-1">Approval Required</h2>
+      <p class="text-center text-xs text-slate-500 uppercase tracking-widest mb-5 font-semibold" id="modalRisk">Risk: —</p>
+
+      <!-- Finding -->
+      <div class="bg-slate-950 rounded-xl border border-slate-800 px-4 py-3 mb-6">
+        <p class="text-xs text-slate-500 mb-1 uppercase tracking-wider font-semibold">Critic Finding</p>
+        <p id="modalFinding" class="text-sm text-slate-300 font-mono leading-relaxed"></p>
+      </div>
+
+      <p class="text-center text-sm text-slate-400 mb-5">The critic has flagged this domain. Approve to send an alert, or deny to suppress.</p>
+
+      <!-- Buttons -->
+      <div class="flex gap-3">
+        <button id="denyBtn" onclick="submitApproval('deny')"
+          class="flex-1 py-3 rounded-xl border border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500/20 font-semibold text-sm transition active:scale-95">
+          ✕ Deny
+        </button>
+        <button id="approveBtn" onclick="submitApproval('approve')"
+          class="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm transition active:scale-95 shadow-lg">
+          ✓ Approve
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════ SCRIPTS -->
+  <script>
+    // ── State ─────────────────────────────────────────────────────────────────
+    let currentRunId   = null;
+    let eventSource    = null;
+    let timerInterval  = null;
+    let startTime      = null;
+    let bbVersionCount = 0;
+    let traceRowCount  = 0;
+    const MAX_STEPS    = 12;
+    const MAX_TIME_S   = 25;
+
+    // ── DOM refs ──────────────────────────────────────────────────────────────
+    const domainInput   = document.getElementById('domainInput');
+    const chaosSelect   = document.getElementById('chaosSelect');
+    const runBtn        = document.getElementById('runBtn');
+    const runBtnText    = document.getElementById('runBtnText');
+    const runIcon       = document.getElementById('runIcon');
+    const traceBody     = document.getElementById('traceBody');
+    const traceEmpty    = document.getElementById('traceEmpty');
+    const traceCountEl  = document.getElementById('traceCount');
+    const bbCode        = document.getElementById('bbCode');
+    const bbVersionEl   = document.getElementById('bbVersion');
+    const verdictCard   = document.getElementById('verdictCard');
+    const liveDot       = document.getElementById('liveDot');
+    const liveLabel     = document.getElementById('liveLabel');
+    const stepsBar      = document.getElementById('stepsBar');
+    const stepsLabel    = document.getElementById('stepsLabel');
+    const timeBar       = document.getElementById('timeBar');
+    const timeLabel     = document.getElementById('timeLabel');
+    const approvalModal = document.getElementById('approvalModal');
+
+    // ── Status badge config ───────────────────────────────────────────────────
+    const STATUS_CONFIG = {
+      ok:       { bg: 'bg-emerald-500/15', text: 'text-emerald-400', border: 'border-emerald-500/30', dot: '●', label: 'OK' },
+      degraded: { bg: 'bg-amber-500/15',   text: 'text-amber-400',   border: 'border-amber-500/30',   dot: '◆', label: 'DEGRADED' },
+      failed:   { bg: 'bg-red-500/15',     text: 'text-red-400',     border: 'border-red-500/30',     dot: '✕', label: 'FAILED' },
+      retrying: { bg: 'bg-sky-500/15',     text: 'text-sky-400',     border: 'border-sky-500/30',     dot: '↺', label: 'RETRYING' },
+    };
+
+    const AGENT_COLORS = {
+      planner:     'text-violet-400',
+      dns_agent:   'text-cyan-400',
+      rdap_agent:  'text-sky-400',
+      uptime_agent:'text-blue-400',
+      cert_agent:  'text-teal-400',
+      critic:      'text-amber-400',
+      orchestrator:'text-rose-400',
+    };
+
+    // ── Timer ─────────────────────────────────────────────────────────────────
+    function startTimer() {
+      startTime = Date.now();
+      timerInterval = setInterval(() => {
+        const elapsed = (Date.now() - startTime) / 1000;
+        const pct = Math.min((elapsed / MAX_TIME_S) * 100, 100);
+        timeBar.style.width = pct + '%';
+        timeLabel.textContent = `${elapsed.toFixed(1)}s / ${MAX_TIME_S}s`;
+        if (pct > 80) timeBar.classList.replace('bg-violet-500', 'bg-red-500');
+      }, 200);
+    }
+
+    function stopTimer() {
+      clearInterval(timerInterval);
+    }
+
+    function updateSteps(step) {
+      const pct = Math.min((step / MAX_STEPS) * 100, 100);
+      stepsBar.style.width = pct + '%';
+      stepsLabel.textContent = `${step} / ${MAX_STEPS}`;
+    }
+
+    // ── Live dot status ───────────────────────────────────────────────────────
+    function setLiveStatus(status) {
+      liveDot.className = 'live-dot ' + status;
+      const labels = { idle:'Idle', running:'Running', waiting:'Awaiting approval', done:'Done' };
+      liveLabel.textContent = labels[status] || status;
+      liveLabel.className = `text-xs font-mono ${
+        status === 'running' ? 'text-cyan-400' :
+        status === 'waiting' ? 'text-amber-400' :
+        status === 'done'    ? 'text-emerald-400' : 'text-slate-500'}`;
+    }
+
+    // ── Reset UI ──────────────────────────────────────────────────────────────
+    function resetUI() {
+      traceBody.innerHTML = '';
+      traceBody.appendChild(traceEmpty);
+      traceEmpty.style.display = 'flex';
+      traceRowCount = 0;
+      bbVersionCount = 0;
+      traceCountEl.textContent = '0 events';
+      bbCode.textContent = '// awaiting first event…';
+      bbCode.className = 'text-slate-600 italic';
+      bbVersionEl.textContent = 'v0';
+      verdictCard.classList.add('hidden');
+      stepsBar.style.width = '0%';
+      stepsLabel.textContent = `0 / ${MAX_STEPS}`;
+      timeBar.style.width = '0%';
+      timeBar.className = 'budget-fill h-full bg-violet-500 rounded-full';
+      timeLabel.textContent = `0.0s / ${MAX_TIME_S}s`;
+      setLiveStatus('idle');
+    }
+
+    // ── Add trace row ─────────────────────────────────────────────────────────
+    function addTraceRow(ev) {
+      traceEmpty.style.display = 'none';
+      traceRowCount++;
+      traceCountEl.textContent = `${traceRowCount} event${traceRowCount !== 1 ? 's' : ''}`;
+
+      const cfg    = STATUS_CONFIG[ev.status] || STATUS_CONFIG.ok;
+      const agentC = AGENT_COLORS[ev.agent] || 'text-slate-300';
+
+      const row = document.createElement('div');
+      row.className = 'trace-row grid grid-cols-[90px_100px_1fr_80px_60px] gap-3 px-4 py-2.5 hover:bg-slate-800/40 transition-colors text-sm';
+      row.innerHTML = `
+        <span class="font-mono font-medium text-xs ${agentC} truncate self-center">${esc(ev.agent)}</span>
+        <span class="self-center">
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${cfg.bg} ${cfg.text} ${cfg.border}">
+            <span>${cfg.dot}</span>${cfg.label}
+          </span>
+        </span>
+        <span class="font-mono text-xs text-slate-400 self-center leading-relaxed">${esc(ev.rationale || ev.note || '')}</span>
+        <span class="font-mono text-xs text-right self-center ${ev.latency_ms > 2000 ? 'text-amber-400' : 'text-slate-500'}">
+          ${ev.latency_ms != null ? ev.latency_ms + ' ms' : '—'}
+        </span>
+        <span class="font-mono text-xs text-right self-center ${ev.retries > 0 ? 'text-amber-400 font-semibold' : 'text-slate-600'}">
+          ${ev.retries != null ? ev.retries : '—'}
+        </span>
+      `;
+      traceBody.appendChild(row);
+      row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+      if (ev.step) updateSteps(ev.step);
+    }
+
+    // ── Blackboard update ─────────────────────────────────────────────────────
+    function updateBlackboard(bb) {
+      bbVersionCount++;
+      bbVersionEl.textContent = `v${bbVersionCount}`;
+      bbCode.className = 'text-slate-300';
+      bbCode.textContent = JSON.stringify(bb, null, 2);
+    }
+
+    // ── Verdict card ──────────────────────────────────────────────────────────
+    function showVerdict(ev) {
+      const v = ev.verdict;
+      const riskColors = {
+        low:    { badge: 'text-emerald-400', border: 'border-emerald-500/30', card: 'border-emerald-500/20', riskBg: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' },
+        medium: { badge: 'text-amber-400',   border: 'border-amber-500/30',   card: 'border-amber-500/20',   riskBg: 'bg-amber-500/10 text-amber-400 border-amber-500/30' },
+        high:   { badge: 'text-red-400',     border: 'border-red-500/30',     card: 'border-red-500/20',     riskBg: 'bg-red-500/10 text-red-400 border-red-500/30' },
+      };
+      const verdictIcons = { healthy: '✓ HEALTHY', degraded: '⚠ DEGRADED', at_risk: '✕ AT RISK' };
+      const rc = riskColors[ev.risk] || riskColors.low;
+
+      verdictCard.className = `rounded-xl border ${rc.card} bg-slate-900/80 p-5 animate-fade-in transition-all verdict-${v}`;
+      verdictCard.classList.remove('hidden');
+
+      document.getElementById('verdictBadge').className  = `text-2xl font-bold font-mono uppercase tracking-wide ${rc.badge}`;
+      document.getElementById('verdictBadge').textContent = verdictIcons[v] || v.toUpperCase();
+      document.getElementById('verdictRisk').className    = `text-xs px-2 py-0.5 rounded-full border font-semibold uppercase tracking-wider ${rc.riskBg}`;
+      document.getElementById('verdictRisk').textContent  = `Risk: ${ev.risk}`;
+      document.getElementById('verdictSummary').textContent = ev.summary || '';
+      document.getElementById('verdictSteps').textContent   = `${ev.total_steps} steps`;
+      document.getElementById('verdictTime').textContent    = `${ev.elapsed_s}s elapsed`;
+
+      verdictCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      if (ev.blackboard) updateBlackboard(ev.blackboard);
+    }
+
+    // ── Approval modal ────────────────────────────────────────────────────────
+    function showApprovalModal(ev) {
+      const riskText = { low: '🟢 LOW RISK', medium: '🟡 MEDIUM RISK', high: '🔴 HIGH RISK' };
+      document.getElementById('modalRisk').textContent    = riskText[ev.risk] || `Risk: ${ev.risk}`;
+      document.getElementById('modalFinding').textContent = ev.finding || 'No finding detail available.';
+      approvalModal.classList.remove('hidden');
+      setLiveStatus('waiting');
+    }
+
+    function hideApprovalModal() {
+      approvalModal.classList.add('hidden');
+      setLiveStatus('running');
+    }
+
+    async function submitApproval(action) {
+      if (!currentRunId) return;
+      hideApprovalModal();
+      try {
+        await fetch(`/audit/${currentRunId}/approve`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action }),
+        });
+        // Add a UI row for the approval decision
+        const cfg = action === 'approve' ? STATUS_CONFIG.ok : STATUS_CONFIG.failed;
+        const row = document.createElement('div');
+        row.className = 'trace-row grid grid-cols-[90px_100px_1fr_80px_60px] gap-3 px-4 py-2.5 bg-slate-800/30 text-sm border-l-2 ' + (action === 'approve' ? 'border-emerald-500' : 'border-red-500');
+        row.innerHTML = `
+          <span class="font-mono text-xs text-slate-500 self-center">human</span>
+          <span class="self-center">
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${cfg.bg} ${cfg.text} ${cfg.border}">
+              ${action === 'approve' ? '✓ APPROVED' : '✕ DENIED'}
+            </span>
+          </span>
+          <span class="font-mono text-xs text-slate-500 self-center">${action === 'approve' ? 'Alert authorized by operator' : 'Alert suppressed by operator'}</span>
+          <span class="text-slate-600 text-xs text-right self-center">—</span>
+          <span class="text-slate-600 text-xs text-right self-center">—</span>
+        `;
+        traceBody.appendChild(row);
+        traceRowCount++;
+        traceCountEl.textContent = `${traceRowCount} events`;
+      } catch (err) {
+        console.error('Approval POST failed:', err);
+      }
+    }
+
+    // ── SSE handler ───────────────────────────────────────────────────────────
+    function handleSSE(run_id) {
+      if (eventSource) eventSource.close();
+      eventSource = new EventSource(`/audit/${run_id}/stream`);
+
+      eventSource.onmessage = (e) => {
+        let ev;
+        try { ev = JSON.parse(e.data); } catch { return; }
+
+        switch (ev.type) {
+          case 'trace':
+            addTraceRow(ev);
+            break;
+
+          case 'blackboard_update':
+            // Show as a slim row in trace + update blackboard panel
+            addTraceRow({
+              agent:      '╴blackboard',
+              status:     'ok',
+              rationale:  ev.note,
+              latency_ms: null,
+              retries:    null,
+              step:       ev.step,
+            });
+            updateBlackboard(ev.blackboard);
+            break;
+
+          case 'requires_approval':
+            showApprovalModal(ev);
+            break;
+
+          case 'approved':
+          case 'denied':
+            // approval was posted by UI already — stream continues
+            break;
+
+          case 'verdict':
+            showVerdict(ev);
+            setRunComplete();
+            eventSource.close();
+            break;
+
+          default:
+            console.log('unknown event type:', ev.type);
+        }
+      };
+
+      eventSource.onerror = (err) => {
+        console.error('SSE error', err);
+        eventSource.close();
+        setRunComplete();
+      };
+    }
+
+    // ── Set run complete ──────────────────────────────────────────────────────
+    function setRunComplete() {
+      stopTimer();
+      setLiveStatus('done');
+      runBtn.disabled = false;
+      runBtnText.textContent = 'Run Audit';
+      runIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 010 1.972l-11.54 6.347a1.125 1.125 0 01-1.667-.986V5.653z" />`;
+    }
+
+    // ── Start audit ───────────────────────────────────────────────────────────
+    async function startAudit() {
+      const domain = domainInput.value.trim();
+      if (!domain) { domainInput.focus(); return; }
+
+      const chaos = chaosSelect.value;
+
+      resetUI();
+      runBtn.disabled = true;
+      runBtnText.textContent = 'Auditing…';
+      runIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="8 4" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />`;
+      setLiveStatus('running');
+      startTimer();
+
+      try {
+        const res  = await fetch('/audit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ domain, chaos }),
+        });
+        const data = await res.json();
+        currentRunId = data.run_id;
+        handleSSE(currentRunId);
+      } catch (err) {
+        console.error('Failed to start audit:', err);
+        setRunComplete();
+        setLiveStatus('idle');
+      }
+    }
+
+    // ── Batch runner ──────────────────────────────────────────────────────────
+    async function runBatch() {
+      const raw     = document.getElementById('batchDomains').value.trim();
+      const repeats = parseInt(document.getElementById('batchRepeats').value) || 3;
+      if (!raw) return;
+      const domains = raw.split('\n').map(d => d.trim()).filter(Boolean);
+      if (!domains.length) return;
+
+      const resultEl = document.getElementById('batchResult');
+      const preEl    = document.getElementById('batchPre');
+      resultEl.classList.remove('hidden');
+      preEl.textContent = '⏳ Running batch…';
+
+      try {
+        const res  = await fetch('/batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ domains, repeats }),
+        });
+        const data = await res.json();
+        preEl.textContent = JSON.stringify({
+          total_runs:       data.total_runs,
+          completed:        data.completed,
+          completion_rate:  data.completion_rate,
+          avg_latency_ms:   data.avg_latency_ms,
+        }, null, 2);
+      } catch (err) {
+        preEl.textContent = '✕ Batch request failed: ' + err.message;
+      }
+    }
+
+    // ── Keyboard shortcut ─────────────────────────────────────────────────────
+    domainInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !runBtn.disabled) startAudit();
+    });
+
+    // ── Utility ───────────────────────────────────────────────────────────────
+    function esc(str) {
+      return String(str ?? '')
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;');
+    }
+  </script>
+</body>
+</html>
