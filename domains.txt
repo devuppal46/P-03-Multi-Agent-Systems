@@ -1,0 +1,3 @@
+example.com
+expired.badssl.com
+this-domain-should-not-exist-12345.com
